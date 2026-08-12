@@ -4,7 +4,9 @@ const Input = {
   keys: { a: false, d: false },
   onJump: null,
   onDash: null,
-  onAction: null, // tecla E: avanzar diálogo / confirmar
+  onAction: null,  // tecla E: avanzar diálogo / confirmar
+  onMenuUp: null,  // tecla W: mover selector hacia arriba
+  onMenuDown: null, // tecla A: mover selector hacia abajo
   _lastSpaceTime: -Infinity,
 
   init() {
@@ -15,6 +17,12 @@ const Input = {
 
       if (k === 'e' && !e.repeat) {
         if (this.onAction) this.onAction();
+      }
+      if (k === 'w' && !e.repeat) {
+        if (this.onMenuUp) this.onMenuUp();
+      }
+      if (k === 'a' && !e.repeat) {
+        if (this.onMenuDown) this.onMenuDown();
       }
 
       if (k === ' ' || e.code === 'Space') {

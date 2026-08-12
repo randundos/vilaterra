@@ -1,50 +1,109 @@
-// Orquesta la cinemática inicial: cae el meteorito, impacta (shake + explosión
-// + cráter), Blai emerge preocupado y habla (el jugador avanza el texto con
-// E), sale corriendo, y espera otra pulsación de E para hacer el fundido a
-// negro y pasar a la jugabilidad. Hero permanece de fondo observando todo.
-const BLAI_LINE = "Ei noi, em podries ajudar si us plau? he perdut el Cub!";
+// Orquesta la cinemática inicial completa:
+// meteorito -> impacto -> Blai emerge preocupado -> diálogo (E avanza) ->
+// selector Sí/No (W/A mueven, E confirma) -> según respuesta:
+//   Sí: Blai da la pista, corre y sale -> fundido a negro -> jugabilidad
+//   No: Hero se da la vuelta y se va -> "FI" + créditos falsos -> fin
+const LINE_LOST_CUB = "Ai no! El meu Cub! La Bruna m'ha robat el Cub!";
+const LINE_ASK_HELP = "Ei noi, em podries ajudar si us plau? he perdut el Cub!";
+const LINE_THANKS = "Moltes gràcies, has d'anar a l'església de Sant Joan. Allà està la Bruna.";
+
+const CREDITS = [
+  "Director Creativo", "Director Ejecutivo", "Guionista", "Programador Jefe",
+  "Diseñador de Personajes", "Animador Principal", "Compositor de la Banda Sonora",
+  "Diseñador de Niveles", "Responsable de Testing", "Traductor al Català",
+  "Community Manager", "Diseñador de Sonido", "Responsable de Marketing",
+  "Catering", "Seguridad del Estudio", "Conserje", "Café y Moral del Equipo",
+  "Becario", "Agradecimientos Especiales"
+].map((role) => ({ role, name: 'Albert Ferrando' }));
 
 const Cutscene = {
   finished: false,
-  // meteor-fall | impact-shake | blai-emerge | dialogue | blai-run | wait-skip | fade-out
+  // meteor-fall | impact-shake | blai-emerge | dialogue | selector |
+  // blai-run | wait-skip | fade-out | hero-leaves | credits
   phase: 'meteor-fall',
   shakeUntil: 0,
   fadeAlpha: 0,
   craterDrawn: false,
 
+  // --- diálogo (cola de líneas reutilizable) ---
+  dialogueQueue: [],
+  dialogueIndex: 0,
   dialogueStart: 0,
   dialogueRevealCount: 0,
   dialogueTotalChars: 0,
   dialogueFullyShown: false,
+  onDialogueDone: null,
+
+  // --- selector Sí/No ---
+  selectorIndex: 0, // 0 = Sí, 1 = No
+
+  // --- créditos ---
+  credits: { subphase: 'fi-drop', subphaseStart: 0, scrollOffset: 0 },
 
   start(now) {
     this.finished = false;
     this.phase = 'meteor-fall';
     this.craterDrawn = false;
     this.fadeAlpha = 0;
-    this.dialogueRevealCount = 0;
-    this.dialogueTotalChars = 0;
-    this.dialogueFullyShown = false;
     Meteor.start();
     Particles.clear();
   },
 
-  // Lo dispara Input al pulsar E. Su efecto depende de en qué fase estemos.
+  beginDialogue(now, lines, onDone) {
+    this.dialogueQueue = lines;
+    this.dialogueIndex = 0;
+    this.dialogueStart = now;
+    this.dialogueRevealCount = 0;
+    this.dialogueTotalChars = 0;
+    this.dialogueFullyShown = false;
+    this.onDialogueDone = onDone;
+    this.phase = 'dialogue';
+  },
+
+  // Tecla E: su efecto depende de la fase actual.
   handleAction(now) {
     if (this.phase === 'dialogue') {
       if (!this.dialogueFullyShown) {
-        // primera pulsación: completa el texto de golpe en vez de esperar
         this.dialogueRevealCount = this.dialogueTotalChars || 9999;
         this.dialogueFullyShown = true;
+        return;
+      }
+      this.dialogueIndex++;
+      // segunda línea de la cola inicial -> Blai señala hacia Hero
+      const nextLine = this.dialogueQueue[this.dialogueIndex];
+      Blai.pose = (nextLine === LINE_ASK_HELP) ? 'pointing' : 'shock';
+      if (this.dialogueIndex < this.dialogueQueue.length) {
+        this.dialogueStart = now;
+        this.dialogueRevealCount = 0;
+        this.dialogueTotalChars = 0;
+        this.dialogueFullyShown = false;
       } else {
-        // segunda pulsación: Blai sale corriendo
-        Blai.startRunning(now);
-        this.phase = 'blai-run';
+        const cb = this.onDialogueDone;
+        this.onDialogueDone = null;
+        if (cb) cb(now);
+      }
+    } else if (this.phase === 'selector') {
+      if (this.selectorIndex === 0) {
+        // Sí -> Blai da la pista y luego se va
+        this.beginDialogue(now, [LINE_THANKS], (n) => {
+          Blai.startRunning(n);
+          this.phase = 'blai-run';
+        });
+      } else {
+        // No -> Hero se va, la aventura termina aquí
+        this.phase = 'hero-leaves';
       }
     } else if (this.phase === 'wait-skip') {
       this.phase = 'fade-out';
       this.fadeAlpha = 0;
     }
+  },
+
+  handleMenuUp() {
+    if (this.phase === 'selector') this.selectorIndex = 0;
+  },
+  handleMenuDown() {
+    if (this.phase === 'selector') this.selectorIndex = 1;
   },
 
   update(now) {
@@ -64,10 +123,10 @@ const Cutscene = {
     } else if (this.phase === 'blai-emerge') {
       Blai.update(now);
       if (Blai.state === 'shock') {
-        this.phase = 'dialogue';
-        this.dialogueStart = now;
-        this.dialogueRevealCount = 0;
-        this.dialogueFullyShown = false;
+        this.beginDialogue(now, [LINE_LOST_CUB, LINE_ASK_HELP], () => {
+          this.phase = 'selector';
+          this.selectorIndex = 0;
+        });
       }
     } else if (this.phase === 'dialogue') {
       if (!this.dialogueFullyShown) {
@@ -82,6 +141,10 @@ const Cutscene = {
       if (Blai.state === 'done') {
         this.phase = 'wait-skip';
       }
+    } else if (this.phase === 'hero-leaves') {
+      this._updateHeroLeave(now);
+    } else if (this.phase === 'credits') {
+      this._updateCredits(now);
     } else if (this.phase === 'fade-out') {
       this.fadeAlpha = Math.min(1, this.fadeAlpha + CONFIG.CUTSCENE.FADE_STEP);
       if (this.fadeAlpha >= 1) {
@@ -90,6 +153,36 @@ const Cutscene = {
     }
 
     Particles.update(16.7);
+  },
+
+  _updateHeroLeave(now) {
+    Player.facing = 'left';
+    Player.isWalking = true;
+    Player.x -= CONFIG.CUTSCENE.RUN_SPEED;
+    if (Player.x < -100) {
+      this.phase = 'credits';
+      this.credits.subphase = 'fi-drop';
+      this.credits.subphaseStart = now;
+      this.credits.scrollOffset = 0;
+    }
+  },
+
+  _updateCredits(now) {
+    const c = this.credits;
+    const elapsed = now - c.subphaseStart;
+
+    if (c.subphase === 'fi-drop') {
+      if (elapsed >= 900) { c.subphase = 'fi-hold'; c.subphaseStart = now; }
+    } else if (c.subphase === 'fi-hold') {
+      if (elapsed >= 900) { c.subphase = 'rolling'; c.subphaseStart = now; c.scrollOffset = 0; }
+    } else if (c.subphase === 'rolling') {
+      c.scrollOffset += 0.6;
+      const totalHeight = CREDITS.length * 42 + CONFIG.CANVAS_H;
+      if (c.scrollOffset > totalHeight) {
+        c.subphase = 'done';
+      }
+    }
+    // 'done': se queda quieto con el mensaje final
   },
 
   draw(ctx, t) {
@@ -101,11 +194,9 @@ const Cutscene = {
       ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
     }
 
-    // fondo nocturno (reutiliza el fondo del nivel con un tinte encima)
     ctx.drawImage(ASSETS.bg, 0, 0, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
     drawNightOverlay(ctx, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
 
-    // Hero observando la escena desde su posición inicial
     Player.draw(ctx, t, CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO);
 
     if (this.craterDrawn) {
@@ -120,14 +211,19 @@ const Cutscene = {
     Meteor.draw(ctx);
     Particles.draw(ctx);
 
-    const blaiVisible = ['blai-emerge', 'dialogue', 'blai-run', 'wait-skip'].includes(this.phase);
+    const blaiVisible = [
+      'blai-emerge', 'dialogue', 'selector', 'blai-run', 'wait-skip',
+      'hero-leaves', 'credits'
+    ].includes(this.phase);
     if (blaiVisible) {
       Blai.draw(ctx, t);
     }
 
     if (this.phase === 'dialogue') {
-      const box = getBox(ASSETS.blaiShock, Blai.x, Blai.groundY, Blai.height);
-      const result = drawDialogueBox(ctx, box.x + box.w / 2, box.y, 260, BLAI_LINE, this.dialogueRevealCount);
+      const img = Blai.pose === 'pointing' ? ASSETS.blaiPoint : ASSETS.blaiShock;
+      const box = getBox(img, Blai.x, Blai.groundY, Blai.height);
+      const text = this.dialogueQueue[this.dialogueIndex] || '';
+      const result = drawDialogueBox(ctx, box.x + box.w / 2, box.y, 260, text, this.dialogueRevealCount);
       this.dialogueTotalChars = result.totalChars;
       drawPressHint(ctx, 'E per avançar', CONFIG.CANVAS_W, CONFIG.CANVAS_H, t);
     }
@@ -136,7 +232,15 @@ const Cutscene = {
       drawPressHint(ctx, 'E per avançar', CONFIG.CANVAS_W, CONFIG.CANVAS_H, t);
     }
 
+    if (this.phase === 'selector') {
+      this._drawSelector(ctx);
+    }
+
     ctx.restore();
+
+    if (this.phase === 'credits') {
+      this._drawCredits(ctx);
+    }
 
     if (this.fadeAlpha > 0) {
       ctx.save();
@@ -145,5 +249,92 @@ const Cutscene = {
       ctx.fillRect(0, 0, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
       ctx.restore();
     }
+  },
+
+  _drawSelector(ctx) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, 0, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
+
+    const boxW = 240, boxH = 120;
+    const x = CONFIG.CANVAS_W / 2 - boxW / 2;
+    const y = CONFIG.CANVAS_H / 2 - boxH / 2;
+
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(x, y, boxW, boxH, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#222';
+    ctx.font = 'bold 16px Trebuchet MS';
+    ctx.fillText("Vols ajudar en Blai?", CONFIG.CANVAS_W / 2, y + 28);
+
+    const options = ['Sí', 'No'];
+    options.forEach((opt, i) => {
+      const oy = y + 62 + i * 32;
+      const selected = this.selectorIndex === i;
+      ctx.fillStyle = selected ? '#d1440a' : '#222';
+      ctx.font = selected ? 'bold 20px Trebuchet MS' : '18px Trebuchet MS';
+      ctx.fillText((selected ? '▶ ' : '') + opt, CONFIG.CANVAS_W / 2, oy);
+    });
+
+    ctx.font = '12px Trebuchet MS';
+    ctx.fillStyle = '#555';
+    ctx.fillText('W arriba · A abajo · E para elegir', CONFIG.CANVAS_W / 2, y + boxH - 8);
+
+    ctx.restore();
+  },
+
+  _drawCredits(ctx) {
+    const c = this.credits;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, 0, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
+
+    // "FI" cayendo desde arriba y quedándose fijo
+    let fiY;
+    if (c.subphase === 'fi-drop') {
+      const p = Math.min(1, (performance.now() - c.subphaseStart) / 900);
+      const eased = 1 - Math.pow(1 - p, 3);
+      fiY = -50 + eased * (CONFIG.CANVAS_H * 0.32 + 50);
+    } else {
+      fiY = CONFIG.CANVAS_H * 0.32;
+    }
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 4;
+    ctx.font = 'bold 64px Trebuchet MS';
+    ctx.strokeText('FI', CONFIG.CANVAS_W / 2, fiY);
+    ctx.fillText('FI', CONFIG.CANVAS_W / 2, fiY);
+
+    if (c.subphase === 'rolling' || c.subphase === 'done') {
+      const lineHeight = 42;
+      const startY = CONFIG.CANVAS_H + 40 - c.scrollOffset;
+      CREDITS.forEach((cr, i) => {
+        const y = startY + i * lineHeight;
+        if (y > -lineHeight && y < CONFIG.CANVAS_H + lineHeight) {
+          ctx.fillStyle = '#ffd447';
+          ctx.font = 'bold 18px Trebuchet MS';
+          ctx.fillText(cr.role, CONFIG.CANVAS_W / 2, y);
+          ctx.fillStyle = '#fff';
+          ctx.font = '16px Trebuchet MS';
+          ctx.fillText(cr.name, CONFIG.CANVAS_W / 2, y + 20);
+        }
+      });
+
+      if (c.subphase === 'done') {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 20px Trebuchet MS';
+        ctx.fillText('Gràcies per jugar!', CONFIG.CANVAS_W / 2, CONFIG.CANVAS_H / 2);
+      }
+    }
+
+    ctx.restore();
   }
 };

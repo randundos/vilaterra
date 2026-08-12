@@ -12,6 +12,8 @@ let mode = 'cutscene'; // 'cutscene' | 'gameplay'
 Input.onJump = () => { if (mode === 'gameplay') Player.jump(); };
 Input.onDash = () => { if (mode === 'gameplay') Player.dash(); };
 Input.onAction = () => { if (mode === 'cutscene') Cutscene.handleAction(performance.now()); };
+Input.onMenuUp = () => { if (mode === 'cutscene') Cutscene.handleMenuUp(); };
+Input.onMenuDown = () => { if (mode === 'cutscene') Cutscene.handleMenuDown(); };
 Input.init();
 
 function update() {

@@ -8,6 +8,7 @@ const Blai = {
   height: 150,
   hipFraction: 0.58,
   state: 'hidden', // hidden | emerging | idle | shock | running | done
+  pose: 'shock',   // 'shock' | 'pointing' -> qué imagen usar mientras state === 'shock'
   stateStart: 0,
   scale: 0,
   runDirX: 1, // 1 = corre hacia la derecha y sale de pantalla por ahí
@@ -16,6 +17,7 @@ const Blai = {
     this.x = x;
     this.groundY = groundY;
     this.state = 'emerging';
+    this.pose = 'shock';
     this.stateStart = now;
     this.scale = 0;
   },
@@ -62,7 +64,10 @@ const Blai = {
   draw(ctx, t) {
     if (this.state === 'hidden' || this.state === 'done') return;
 
-    const img = (this.state === 'shock') ? ASSETS.blaiShock : ASSETS.blai;
+    let img = ASSETS.blai;
+    if (this.state === 'shock') {
+      img = (this.pose === 'pointing') ? ASSETS.blaiPoint : ASSETS.blaiShock;
+    }
     const box = getBox(img, this.x, this.groundY, this.height);
 
     ctx.save();
