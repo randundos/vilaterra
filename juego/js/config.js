@@ -13,7 +13,31 @@ const CONFIG = {
   DOUBLE_TAP_MS: 320,     // ventana para detectar doble pulsación de Espacio
 
   TALK_DISTANCE: 130,     // distancia a la que Mac Arrons saluda
-  MARGIN_X: 60,           // límites de movimiento horizontal dentro del canvas
+  MARGIN_X: 60,           // límites de movimiento horizontal dentro del nivel
+
+  // --- Nivel 1: scroll estilo Sonic ---
+  LEVEL_WIDTH: 2800,        // ancho total del nivel en px de "mundo"
+  // La capa de suelo empieza justo en GROUND_Y_RATIO (donde pisan los
+  // personajes) -> así los pies quedan exactamente al nivel de la textura.
+  PARALLAX_SKY_FACTOR: 0.35, // el cielo/árboles se mueve a este % de la velocidad de la cámara
+  MAC_X: 2500,              // posición de Mac Arrons en el nivel (ya no está a la vista al empezar)
+
+  BOAR: {
+    SPAWN_X: 1150,
+    HEIGHT: 72,
+    SPEED: 1.6,
+    PATROL_RANGE: 150,
+    FRAME_MS: 110,       // duración de cada frame de animación
+    IDLE_MS: 600,
+    STOP_MS: 220,
+    TURN_MS: 380,
+    HURT_MS: 350,
+    DEATH_FADE_MS: 700   // cuánto tarda en desvanecerse tras la animación de death
+  },
+
+  STOMP_BOUNCE: -12,      // rebote del Hero al saltar encima del jabalí
+  HERO_KNOCKBACK: 7,      // empuje horizontal al tocar al jabalí de lado
+  HERO_INVULN_MS: 1000,   // invulnerabilidad tras recibir un golpe
 
   // --- Cinemática inicial (caída del meteorito) ---
   NIGHT_TINT: 'rgba(10, 15, 40, 0.55)',

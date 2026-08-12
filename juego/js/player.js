@@ -1,4 +1,7 @@
-// Estado y comportamiento del protagonista jugable (Hero): movimiento, salto y empujón.
+// Estado y comportamiento del protagonista jugable (Hero): movimiento, salto,
+// empujón, y reacción al contacto con enemigos (invulnerabilidad + empujón).
+// this.x es una coordenada de MUNDO (el nivel es más ancho que el canvas);
+// draw() resta cameraX para saber dónde pintarlo en pantalla.
 const Player = {
   x: 200,
   height: 155,
@@ -7,8 +10,9 @@ const Player = {
   vy: 0,             // velocidad vertical (salto)
   jumpOffset: 0,     // 0 = en el suelo, negativo = en el aire
   grounded: true,
-  dashVX: 0,         // velocidad horizontal extra del empujón
+  dashVX: 0,         // velocidad horizontal extra (empujón o retroceso al recibir daño)
   isWalking: false,
+  invulnerableUntil: 0,
 
   jump() {
     if (this.grounded) {
@@ -19,6 +23,20 @@ const Player = {
 
   dash() {
     this.dashVX = (this.facing === 'right' ? 1 : -1) * CONFIG.DASH_BURST;
+  },
+
+  // Lo llama la colisión con un enemigo cuando el contacto NO es un pisotón:
+  // empuje horizontal + pequeño salto hacia atrás + invulnerabilidad breve.
+  hurt(now, knockbackDir) {
+    if (now < this.invulnerableUntil) return;
+    this.dashVX = knockbackDir * CONFIG.HERO_KNOCKBACK;
+    this.vy = CONFIG.JUMP_VELOCITY * 0.45;
+    this.grounded = false;
+    this.invulnerableUntil = now + CONFIG.HERO_INVULN_MS;
+  },
+
+  isInvulnerable(now) {
+    return now < this.invulnerableUntil;
   },
 
   update() {
@@ -33,7 +51,7 @@ const Player = {
       if (Math.abs(this.dashVX) < 0.3) this.dashVX = 0;
     }
 
-    const maxX = CONFIG.CANVAS_W - CONFIG.MARGIN_X;
+    const maxX = CONFIG.LEVEL_WIDTH - CONFIG.MARGIN_X;
     this.x = Math.max(CONFIG.MARGIN_X, Math.min(maxX, this.x));
 
     // --- salto (gravedad simple) ---
@@ -50,10 +68,16 @@ const Player = {
     this.isWalking = this.grounded && moveX !== 0;
   },
 
-  draw(ctx, t, groundY) {
-    const box = getBox(ASSETS.hero, this.x, groundY + this.jumpOffset, this.height);
+  // cameraX es opcional (por defecto 0): la cinemática inicial no hace scroll,
+  // así que Hero se dibuja directamente en su posición de mundo = pantalla.
+  draw(ctx, t, groundY, cameraX = 0) {
+    const now = performance.now();
+    const flicker = this.isInvulnerable(now) && Math.floor(t / 80) % 2 === 0;
+
+    const box = getBox(ASSETS.hero, this.x - cameraX, groundY + this.jumpOffset, this.height);
 
     ctx.save();
+    if (flicker) ctx.globalAlpha = 0.4;
     if (this.facing === 'right') {
       // el sprite mira de forma natural hacia la izquierda, así que se
       // voltea al ir hacia la derecha (y no al revés)
@@ -65,6 +89,7 @@ const Player = {
     drawWalking(ctx, ASSETS.hero, box, this.hipFraction, t, this.isWalking, true);
     ctx.restore();
 
+    this._box = box; // se guarda para anclar diálogos por encima de su cabeza
     return box;
   }
 };

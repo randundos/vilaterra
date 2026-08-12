@@ -95,6 +95,51 @@ function drawNightOverlay(ctx, w, h) {
   ctx.restore();
 }
 
+// Dibuja una imagen repetida horizontalmente para cubrir todo el ancho del
+// canvas a un desplazamiento dado, escalada para encajar en drawH de alto.
+// Es la base del scroll en paralaje: se llama una vez por capa, cada una con
+// su propio "factor" de velocidad respecto a la cámara.
+// Con mirror=true, las copias alternas se dibujan volteadas horizontalmente
+// (truco clásico para disimular costuras en texturas que no son 100% tileables:
+// el borde de contacto siempre queda como un reflejo, nunca como un salto brusco).
+function drawParallaxLayer(ctx, img, canvasW, drawY, drawH, cameraX, factor, mirror = false) {
+  const scale = drawH / img.height;
+  const scaledW = img.width * scale;
+  if (scaledW <= 0) return;
+
+  const scrollX = cameraX * factor;
+  const startTile = Math.floor((scrollX - scaledW) / scaledW);
+  const tilesNeeded = Math.ceil(canvasW / scaledW) + 3;
+
+  for (let i = 0; i < tilesNeeded; i++) {
+    const tileIndex = startTile + i;
+    const screenX = tileIndex * scaledW - scrollX;
+    if (screenX > canvasW) break;
+
+    if (mirror && tileIndex % 2 !== 0) {
+      ctx.save();
+      ctx.translate(screenX + scaledW, drawY);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, 0, 0, scaledW, drawH);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img, screenX, drawY, scaledW, drawH);
+    }
+  }
+}
+
+// Fondo del nivel jugable con dos capas: el cielo/árboles se mueve más
+// despacio que la cámara (sensación de profundidad, estilo Sonic) y la
+// franja de suelo se mueve a la misma velocidad que la cámara, empezando
+// justo en GROUND_Y_RATIO para que los pies de los personajes queden
+// exactamente al nivel de la textura.
+function drawLevelBackground(ctx, cameraX) {
+  const groundY = CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO;
+  const groundH = CONFIG.CANVAS_H - groundY;
+  drawParallaxLayer(ctx, ASSETS.bgSky, CONFIG.CANVAS_W, 0, groundY, cameraX, CONFIG.PARALLAX_SKY_FACTOR);
+  drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
+}
+
 // Parte un texto en líneas que quepan en maxWidth (con el ctx.font ya puesto).
 function wrapText(ctx, text, maxWidth) {
   const words = text.split(' ');
@@ -182,45 +227,5 @@ function drawPressHint(ctx, text, canvasW, canvasH, t) {
   const py = canvasH - 22;
   ctx.strokeText(text, px, py);
   ctx.fillText(text, px, py);
-  ctx.restore();
-}
-
-function drawSpeechBubble(ctx, x, y, text, scale) {
-  if (scale <= 0.01) return;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-
-  ctx.font = 'bold 20px Trebuchet MS';
-  const paddingX = 18, paddingY = 12;
-  const textWidth = ctx.measureText(text).width;
-  const boxW = textWidth + paddingX * 2;
-  const boxH = 40 + paddingY;
-  const bx = -boxW / 2;
-  const by = -boxH - 20;
-
-  ctx.fillStyle = '#fff';
-  ctx.strokeStyle = '#222';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.roundRect(bx, by, boxW, boxH, 12);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(-10, by + boxH);
-  ctx.lineTo(10, by + boxH);
-  ctx.lineTo(-4, by + boxH + 16);
-  ctx.closePath();
-  ctx.fillStyle = '#fff';
-  ctx.fill();
-  ctx.strokeStyle = '#222';
-  ctx.stroke();
-
-  ctx.fillStyle = '#222';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 0, by + boxH / 2 + 2);
-
   ctx.restore();
 }

@@ -1,29 +1,26 @@
-// Estado y comportamiento de Mac Arrons: se queda fijo en su sitio, respira
-// (idle bob) y saluda con una burbuja cuando el jugador se acerca.
+// Estado y comportamiento de Mac Arrons: se queda fijo en su sitio del nivel
+// (más adelante, no a la vista al empezar). this.x es coordenada de MUNDO.
+// Al acercarse el jugador por primera vez se dispara la escena de encuentro
+// (ver introLines) a través del sistema de Dialogue.
 const Mac = {
-  x: CONFIG.CANVAS_W - 190,
+  x: CONFIG.MAC_X,
   height: 195,
   hipFraction: 0.62,
-  dialogue: 'Ei bro, que dius?',
-  bubbleScale: 0,
+  metHero: false, // para que la escena de encuentro solo salte una vez
 
-  updateBubble(playerX) {
-    const distance = Math.abs(this.x - playerX);
-    const near = distance <= CONFIG.TALK_DISTANCE;
-    this.bubbleScale += ((near ? 1 : 0) - this.bubbleScale) * 0.15;
-  },
+  introLines: [
+    { speaker: 'mac', text: "Hola, sóc en Mac Arrons, i efectivament, sóc un mag." },
+    { speaker: 'mac', text: "No sé què fas aquí, però això és casa meva. Has de marxar." },
+    { speaker: 'hero', text: "Ho sento, però haig de passar per aquí per ajudar a un amic." },
+    { speaker: 'mac', text: "Si tant insisteixes..." }
+  ],
 
-  draw(ctx, t, groundY) {
-    const box = getBox(ASSETS.mac, this.x, groundY, this.height);
+  // cameraX es opcional (por defecto 0) por si algún día aparece en una
+  // escena sin scroll; en la jugabilidad normal siempre se pasa Camera.x.
+  draw(ctx, t, groundY, cameraX = 0) {
+    const box = getBox(ASSETS.mac, this.x - cameraX, groundY, this.height);
     drawWalking(ctx, ASSETS.mac, box, this.hipFraction, t, false, true);
-    this._box = box; // se guarda para dibujar la burbuja por encima del jugador después
+    this._box = box; // se guarda para anclar el diálogo por encima de él
     return box;
-  },
-
-  // Se dibuja aparte y más tarde (después del jugador) para que la burbuja
-  // quede siempre por encima aunque Blai esté justo delante.
-  drawBubble(ctx) {
-    if (!this._box) return;
-    drawSpeechBubble(ctx, this._box.x + this._box.w / 2, this._box.y, this.dialogue, this.bubbleScale);
   }
 };
