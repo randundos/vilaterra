@@ -4,6 +4,7 @@ const ASSETS = {
   bgSky: new Image(),     // capa de cielo/árboles para el scroll en paralaje (más lenta)
   bgGround: new Image(),  // capa de hierba/tierra para el scroll en paralaje (velocidad normal)
   hero: new Image(),      // protagonista jugable (aún sin nombre in-game, "Hero" de momento)
+  heroJump: new Image(),  // pose de salto (mientras está en el aire)
   blai: new Image(),      // solo aparece en la cinemática inicial
   blaiShock: new Image(), // pose de Blai preocupado (manos a la cabeza) para el diálogo
   blaiPoint: new Image(), // pose de Blai señalando hacia Hero al pedirle ayuda
@@ -15,6 +16,7 @@ ASSETS.bg.src = '../Visuals/fondo%20lvl1.png';
 ASSETS.bgSky.src = '../Visuals/fondo_cielo.png';
 ASSETS.bgGround.src = '../Visuals/fondo_suelo.png';
 ASSETS.hero.src = '../Visuals/Hero_sinfondo.png';
+ASSETS.heroJump.src = '../Visuals/Hero_salto_sinfondo.png';
 ASSETS.blai.src = '../Visuals/Blai_sinfondo.png';
 ASSETS.blaiShock.src = '../Visuals/Blai_preocupat_sinfondo.png';
 ASSETS.blaiPoint.src = '../Visuals/Blai_preguntant_sinfondo.png';

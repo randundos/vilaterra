@@ -73,20 +73,26 @@ const Player = {
   draw(ctx, t, groundY, cameraX = 0) {
     const now = performance.now();
     const flicker = this.isInvulnerable(now) && Math.floor(t / 80) % 2 === 0;
+    const jumping = !this.grounded;
 
-    const box = getBox(ASSETS.hero, this.x - cameraX, groundY + this.jumpOffset, this.height);
+    const img = jumping ? ASSETS.heroJump : ASSETS.hero;
+    const box = getBox(img, this.x - cameraX, groundY + this.jumpOffset, this.height);
 
     ctx.save();
     if (flicker) ctx.globalAlpha = 0.4;
     if (this.facing === 'right') {
-      // el sprite mira de forma natural hacia la izquierda, así que se
-      // voltea al ir hacia la derecha (y no al revés)
+      // el sprite mira de forma natural hacia la izquierda (igual la pose de
+      // salto), así que se voltea al ir hacia la derecha (y no al revés)
       const centerX = box.x + box.w / 2;
       ctx.translate(centerX, 0);
       ctx.scale(-1, 1);
       ctx.translate(-centerX, 0);
     }
-    drawWalking(ctx, ASSETS.hero, box, this.hipFraction, t, this.isWalking, true);
+    if (jumping) {
+      ctx.drawImage(img, box.x, box.y, box.w, box.h);
+    } else {
+      drawWalking(ctx, img, box, this.hipFraction, t, this.isWalking, true);
+    }
     ctx.restore();
 
     this._box = box; // se guarda para anclar diálogos por encima de su cabeza

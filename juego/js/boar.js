@@ -118,9 +118,9 @@ const Boar = {
     if (this.state === 'death' && this.deathAnimDone) {
       ctx.globalAlpha = this.fadeAlpha;
     }
-    if (this.dir > 0) {
-      // el sprite mira de forma natural hacia la izquierda, igual que los
-      // personajes -> se voltea al andar hacia la derecha
+    if (this.dir < 0) {
+      // el sprite mira de forma natural hacia la derecha -> se voltea al
+      // andar hacia la izquierda (comprobado jugando: al revés que Hero/Blai)
       const c = box.x + box.w / 2;
       ctx.translate(c, 0);
       ctx.scale(-1, 1);
