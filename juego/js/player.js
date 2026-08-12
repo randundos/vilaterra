@@ -54,7 +54,9 @@ const Player = {
     const box = getBox(ASSETS.hero, this.x, groundY + this.jumpOffset, this.height);
 
     ctx.save();
-    if (this.facing === 'left') {
+    if (this.facing === 'right') {
+      // el sprite mira de forma natural hacia la izquierda, así que se
+      // voltea al ir hacia la derecha (y no al revés)
       const centerX = box.x + box.w / 2;
       ctx.translate(centerX, 0);
       ctx.scale(-1, 1);

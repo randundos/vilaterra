@@ -32,11 +32,9 @@ const CONFIG = {
   CUTSCENE: {
     EMERGE_MS: 500,
     HOLD_AFTER_EMERGE_MS: 300,
-    ARMS_UP_MS: 450,
-    HOLD_SHOCK_MS: 600,
-    ARMS_DOWN_MS: 250,
     RUN_SPEED: 6,
     FADE_STEP: 0.04,
-    SHAKE_MS: 350
+    SHAKE_MS: 350,
+    TYPE_MS_PER_CHAR: 28   // velocidad del efecto máquina de escribir
   }
 };

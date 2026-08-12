@@ -95,42 +95,93 @@ function drawNightOverlay(ctx, w, h) {
   ctx.restore();
 }
 
-// Pose de "manos a la cabeza": el torso se dibuja fijo (con un ligero
-// temblor de pánico) y cada brazo se recorta y gira desde el hombro hacia
-// arriba. armProgress va de 0 (brazos caídos) a 1 (brazos arriba del todo).
-// Es una aproximación estilizada -> puede necesitar ajuste fino visual.
-function drawShocked(ctx, img, box, armProgress) {
-  const { x, y, w, h } = box;
-  const jitter = (Math.random() - 0.5) * 2;
-  const armAngle = armProgress * 2.3; // radianes
+// Parte un texto en líneas que quepan en maxWidth (con el ctx.font ya puesto).
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  words.forEach((word) => {
+    const test = current ? current + ' ' + word : word;
+    if (ctx.measureText(test).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  });
+  if (current) lines.push(current);
+  return lines;
+}
+
+// Caja de diálogo de tamaño FIJO (calculado con el texto completo) que solo
+// revela los primeros revealCount caracteres -> efecto máquina de escribir
+// sin que la caja cambie de tamaño mientras se va escribiendo el texto.
+// Devuelve { totalChars } para que quien la use sepa cuándo está completo.
+function drawDialogueBox(ctx, x, y, maxWidth, fullText, revealCount) {
+  ctx.font = 'bold 19px Trebuchet MS';
+  const lines = wrapText(ctx, fullText, maxWidth);
+
+  const lineHeight = 26;
+  const paddingX = 20, paddingY = 16;
+  let widest = 0;
+  lines.forEach((l) => { widest = Math.max(widest, ctx.measureText(l).width); });
+  const boxW = widest + paddingX * 2;
+  const boxH = lines.length * lineHeight + paddingY * 2;
+  const bx = x - boxW / 2;
+  const by = y - boxH - 22;
 
   ctx.save();
-  ctx.drawImage(img, x + jitter, y, w, h);
-
-  // brazo del lado izquierdo de la pantalla
-  ctx.save();
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.rect(x - 6, y + h * 0.30, w * 0.32, h * 0.34);
-  ctx.clip();
-  const pivotL = { x: x + w * 0.16, y: y + h * 0.34 };
-  ctx.translate(pivotL.x, pivotL.y);
-  ctx.rotate(-armAngle);
-  ctx.translate(-pivotL.x, -pivotL.y);
-  ctx.drawImage(img, x + jitter, y, w, h);
+  ctx.roundRect(bx, by, boxW, boxH, 12);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x - 10, by + boxH);
+  ctx.lineTo(x + 10, by + boxH);
+  ctx.lineTo(x - 4, by + boxH + 16);
+  ctx.closePath();
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.strokeStyle = '#222';
+  ctx.stroke();
+
+  ctx.fillStyle = '#222';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  let remaining = revealCount;
+  let totalChars = 0;
+  lines.forEach((line, i) => {
+    totalChars += line.length + 1;
+    const shown = remaining > 0 ? line.slice(0, remaining) : '';
+    remaining -= line.length + 1;
+    ctx.fillText(shown, bx + paddingX, by + paddingY + lineHeight * i + lineHeight / 2);
+  });
+
   ctx.restore();
 
-  // brazo del lado derecho de la pantalla
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x + w * 0.68, y + h * 0.30, w * 0.32 + 6, h * 0.34);
-  ctx.clip();
-  const pivotR = { x: x + w * 0.84, y: y + h * 0.34 };
-  ctx.translate(pivotR.x, pivotR.y);
-  ctx.rotate(armAngle);
-  ctx.translate(-pivotR.x, -pivotR.y);
-  ctx.drawImage(img, x + jitter, y, w, h);
-  ctx.restore();
+  return { totalChars };
+}
 
+// Aviso tipo videojuego en la parte inferior de la pantalla (p.ej. "E per
+// avançar"), con un parpadeo suave para que se note que espera al jugador.
+function drawPressHint(ctx, text, canvasW, canvasH, t) {
+  ctx.save();
+  const alpha = 0.55 + Math.sin(t * 0.006) * 0.35;
+  ctx.globalAlpha = Math.max(0.2, alpha);
+  ctx.font = 'bold 15px Trebuchet MS';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.lineWidth = 3;
+  const px = canvasW / 2;
+  const py = canvasH - 22;
+  ctx.strokeText(text, px, py);
+  ctx.fillText(text, px, py);
   ctx.restore();
 }
 

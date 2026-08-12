@@ -4,6 +4,7 @@ const Input = {
   keys: { a: false, d: false },
   onJump: null,
   onDash: null,
+  onAction: null, // tecla E: avanzar diálogo / confirmar
   _lastSpaceTime: -Infinity,
 
   init() {
@@ -11,6 +12,10 @@ const Input = {
       const k = e.key.toLowerCase();
       if (k === 'a') this.keys.a = true;
       if (k === 'd') this.keys.d = true;
+
+      if (k === 'e' && !e.repeat) {
+        if (this.onAction) this.onAction();
+      }
 
       if (k === ' ' || e.code === 'Space') {
         e.preventDefault(); // evita que la página haga scroll
