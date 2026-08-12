@@ -13,6 +13,8 @@ const Player = {
   dashVX: 0,         // velocidad horizontal extra (empujón o retroceso al recibir daño)
   isWalking: false,
   invulnerableUntil: 0,
+  health: CONFIG.HERO_MAX_HEALTH,
+  bracelets: 0,
 
   jump() {
     if (this.grounded) {
@@ -26,13 +28,19 @@ const Player = {
   },
 
   // Lo llama la colisión con un enemigo cuando el contacto NO es un pisotón:
-  // empuje horizontal + pequeño salto hacia atrás + invulnerabilidad breve.
+  // empuje horizontal + pequeño salto hacia atrás + invulnerabilidad breve
+  // + pérdida de un tramo de vida (p.ej. un golpe de jabalí = 20%).
   hurt(now, knockbackDir) {
     if (now < this.invulnerableUntil) return;
     this.dashVX = knockbackDir * CONFIG.HERO_KNOCKBACK;
     this.vy = CONFIG.JUMP_VELOCITY * 0.45;
     this.grounded = false;
     this.invulnerableUntil = now + CONFIG.HERO_INVULN_MS;
+    this.health = Math.max(0, this.health - CONFIG.HERO_DAMAGE_PER_HIT);
+  },
+
+  addBracelets(amount) {
+    this.bracelets += amount;
   },
 
   isInvulnerable(now) {

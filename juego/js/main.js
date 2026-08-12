@@ -78,6 +78,9 @@ function draw(t) {
   Boar.draw(ctx, now, t, Camera.x);
   Player.draw(ctx, t, groundY, Camera.x);
   Dialogue.draw(ctx, getSpeakerBox);
+
+  drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
+  drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
 }
 
 function loop(t) {

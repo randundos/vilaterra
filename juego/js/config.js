@@ -39,6 +39,18 @@ const CONFIG = {
   HERO_KNOCKBACK: 7,      // empuje horizontal al tocar al jabalí de lado
   HERO_INVULN_MS: 1000,   // invulnerabilidad tras recibir un golpe
 
+  HERO_MAX_HEALTH: 100,
+  HERO_DAMAGE_PER_HIT: 20, // % de vida que quita un golpe de enemigo
+  BOAR_BRACELET_REWARD: 3, // pulseras que suelta el jabalí al morir
+
+  HUD: {
+    HEALTH_BAR_X: 18,
+    HEALTH_BAR_Y: 14,
+    HEALTH_BAR_W: 220,     // ancho en pantalla de la barra completa
+    BRACELET_ICON_SIZE: 40,
+    MARGIN: 16              // margen respecto al borde del canvas
+  },
+
   // --- Cinemática inicial (caída del meteorito) ---
   NIGHT_TINT: 'rgba(10, 15, 40, 0.55)',
   STAR_COUNT: 60,

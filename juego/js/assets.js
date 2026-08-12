@@ -9,6 +9,8 @@ const ASSETS = {
   blaiShock: new Image(), // pose de Blai preocupado (manos a la cabeza) para el diálogo
   blaiPoint: new Image(), // pose de Blai señalando hacia Hero al pedirle ayuda
   mac: new Image(),
+  healthBar: new Image(), // barra de vida (corazón + tira), se recorta según el % de vida
+  bracelet: new Image(),  // icono de pulsera para el contador de recompensas
   boar: { idle: [], move: [], turn: [], stop: [], hurt: [], death: [] }
 };
 
@@ -21,6 +23,8 @@ ASSETS.blai.src = '../Visuals/Blai_sinfondo.png';
 ASSETS.blaiShock.src = '../Visuals/Blai_preocupat_sinfondo.png';
 ASSETS.blaiPoint.src = '../Visuals/Blai_preguntant_sinfondo.png';
 ASSETS.mac.src = '../Visuals/Mac%20Arrons_sinfondo.png';
+ASSETS.healthBar.src = '../Visuals/barra_vida_sinfondo.png';
+ASSETS.bracelet.src = '../Visuals/pulsera_sinfondo.png';
 
 const BOAR_FRAME_COUNT = 8;
 Object.keys(ASSETS.boar).forEach((state) => {

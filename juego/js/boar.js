@@ -153,6 +153,7 @@ function checkBoarCollision(now, groundY) {
     Player.vy = CONFIG.STOMP_BOUNCE;
     Player.jumpOffset = -1;
     Player.grounded = false;
+    Player.addBracelets(CONFIG.BOAR_BRACELET_REWARD);
   } else {
     const dir = Player.x < Boar.x ? -1 : 1;
     Player.hurt(now, dir);
