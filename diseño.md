@@ -62,6 +62,7 @@ A lo largo de la aventura, el protagonista irá conociendo a varios personajes q
 - **Paleta:** colores planos, pocos tonos por prenda/elemento (sin degradados complejos), con sombreado sutil para dar volumen
 - **Personalidad en el diseño:** cada personaje se distingue por accesorios y detalles característicos (p. ej. Mac Arrons con gafas de sol, barba, pendiente y sombrero de mago puntiagudo con una "A"; Blai con look infantil sencillo, pelo de pincho y sonrisa abierta)
 - **Presentación de referencia:** sprites a cuerpo entero sobre fondo neutro oscuro, sin escenario, pensados como hoja de referencia de personaje (turnaround/ficha), no como captura in-game
+- **Escenarios/fondos:** scroll lateral en capas (parallax) — cielo con nubes pixeladas, silueta de copas de árboles en primer plano superior, línea de árboles variados en el fondo (frondosos, cipreses, pino), césped con hierba suelta y matorrales, y corte transversal de tierra con piedras bajo el césped. Referencia disponible del escenario inicial (afueras de Vilaterra), cuyo corte de césped/tierra también sirve de base visual para el Nivel 1 (miniatura)
 
 ## Pendiente de definir
 - Nombre del protagonista (si lo tendrá) y del juego
@@ -72,4 +73,4 @@ A lo largo de la aventura, el protagonista irá conociendo a varios personajes q
 - Diseño visual del protagonista, Cub, Bruna y del resto de insectos/abubilla del nivel 1
 
 ---
-*Última actualización: añadido Mac Arrons, nivel 1 (miniatura/césped), habilidad de los auriculares del tiempo y estilo visual (pixel art chibi).*
+*Última actualización: añadido Mac Arrons, nivel 1 (miniatura/césped), habilidad de los auriculares del tiempo, estilo visual (pixel art chibi) y referencia del fondo del escenario inicial.*
