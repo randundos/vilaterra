@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Vilaterra — Encuentro con Mac Arrons</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Trebuchet MS', sans-serif;
+    overflow: hidden;
+  }
+  h1 { color: #eee; margin: 10px 0 2px; font-size: 20px; }
+  p.hint { color: #bbb; margin: 0 0 10px; font-size: 14px; }
+  #wrap {
+    position: relative;
+    border: 4px solid #000;
+    border-radius: 6px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    background: #222;
+  }
+</style>
+</head>
+<body>
+  <h1>Vilaterra — Nivel 1</h1>
+  <p class="hint">Mantén pulsada la tecla <b>D</b> para avanzar →</p>
+  <div id="wrap">
+    <canvas id="game" width="960" height="540"></canvas>
+  </div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+// --- Carga de assets (rutas relativas a la carpeta Visuals) ---
+// Ahora usamos las versiones sin fondo (recortadas y con transparencia)
+const assets = {
+  bg: new Image(),
+  player: new Image(),
+  mac: new Image()
+};
+assets.bg.src = 'Visuals/fondo%20lvl1.png';
+assets.player.src = 'Visuals/Blai_sinfondo.png';
+assets.mac.src = 'Visuals/Mac%20Arrons_sinfondo.png';
+
+let loaded = 0;
+const total = 3;
+function onLoad() {
+  loaded++;
+  if (loaded === total) requestAnimationFrame(loop);
+}
+Object.values(assets).forEach(img => {
+  img.onload = onLoad;
+  img.onerror = () => console.error('No se pudo cargar la imagen:', img.src);
+});
+
+// --- Estado del juego ---
+const groundY = canvas.height * 0.80;
+
+// hipFraction: a qué altura (0-1) del sprite empiezan las piernas,
+// usado para partir el dibujo en "torso" y "piernas" y animar el andar
+const player = {
+  x: 90,
+  height: 155,
+  hipFraction: 0.58
+};
+
+const mac = {
+  x: canvas.width - 190,
+  height: 195,
+  hipFraction: 0.62
+};
+
+let keyDown = false;
+let talking = false;
+let bubbleScale = 0;
+const TALK_DISTANCE = 130; // distancia (px) a la que Mac Arrons saluda
+const SPEED = 2.6;
+
+window.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 'd') keyDown = true;
+});
+window.addEventListener('keyup', (e) => {
+  if (e.key.toLowerCase() === 'd') keyDown = false;
+});
+
+function getBox(img, centerX, groundYPos, height) {
+  const ratio = img.width / img.height;
+  const h = height;
+  const w = h * ratio;
+  const x = centerX - w / 2;
+  const y = groundYPos - h;
+  return { x, y, w, h };
+}
+
+// Dibuja el sprite con un ciclo de andar simulado: separa el cuerpo (torso+cabeza)
+// de las piernas, y gira cada pierna (mitad izquierda/derecha) alrededor de la cadera
+// como un compás, ya que solo tenemos una pose estática de cada personaje.
+function drawWalking(img, box, hipFraction, t, walking, idleBreath = true) {
+  const { x, y, w, h } = box;
+  const hipY = y + h * hipFraction;
+  const bodyH = hipY - y;
+  const legH = (y + h) - hipY;
+
+  const bob = walking ? Math.sin(t * 0.018) * 3 : (idleBreath ? Math.sin(t * 0.0025) * 1.5 : 0);
+
+  ctx.save();
+
+  // --- torso + cabeza (con pequeño balanceo vertical) ---
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x - 4, y - 4 + bob, w + 8, bodyH + 8);
+  ctx.clip();
+  ctx.drawImage(img, x, y + bob, w, h);
+  ctx.restore();
+
+  if (walking) {
+    // --- piernas: dos mitades que giran en contrafase alrededor de la cadera ---
+    const legAngle = Math.sin(t * 0.022) * 0.30;
+
+    // pierna izquierda
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x - 4, hipY - 2, w / 2 + 4, legH + 12);
+    ctx.clip();
+    const pivotLX = x + w * 0.30;
+    ctx.translate(pivotLX, hipY);
+    ctx.rotate(legAngle);
+    ctx.translate(-pivotLX, -hipY);
+    ctx.drawImage(img, x, y, w, h);
+    ctx.restore();
+
+    // pierna derecha
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x + w / 2 - 4, hipY - 2, w / 2 + 8, legH + 12);
+    ctx.clip();
+    const pivotRX = x + w * 0.70;
+    ctx.translate(pivotRX, hipY);
+    ctx.rotate(-legAngle);
+    ctx.translate(-pivotRX, -hipY);
+    ctx.drawImage(img, x, y, w, h);
+    ctx.restore();
+  } else {
+    // piernas quietas (sin animar)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x - 4, hipY - 2, w + 8, legH + 12);
+    ctx.clip();
+    ctx.drawImage(img, x, y, w, h);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawSpeechBubble(x, y, text, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  ctx.font = 'bold 20px Trebuchet MS';
+  const paddingX = 18, paddingY = 12;
+  const textWidth = ctx.measureText(text).width;
+  const boxW = textWidth + paddingX * 2;
+  const boxH = 40 + paddingY;
+  const bx = -boxW / 2;
+  const by = -boxH - 20;
+
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(bx, by, boxW, boxH, 12);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-10, by + boxH);
+  ctx.lineTo(10, by + boxH);
+  ctx.lineTo(-4, by + boxH + 16);
+  ctx.closePath();
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.strokeStyle = '#222';
+  ctx.stroke();
+
+  ctx.fillStyle = '#222';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 0, by + boxH / 2 + 2);
+
+  ctx.restore();
+}
+
+let isWalking = false;
+
+function update() {
+  isWalking = !talking && keyDown;
+  if (isWalking) {
+    player.x += SPEED;
+  }
+
+  const distance = mac.x - player.x;
+  if (!talking && distance <= TALK_DISTANCE) {
+    talking = true;
+    player.x = mac.x - TALK_DISTANCE;
+  }
+
+  if (talking && bubbleScale < 1) {
+    bubbleScale = Math.min(1, bubbleScale + 0.12);
+  }
+}
+
+function draw(t) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // fondo
+  ctx.drawImage(assets.bg, 0, 0, canvas.width, canvas.height);
+
+  // Mac Arrons (fijo, con pequeña respiración idle)
+  const macBox = getBox(assets.mac, mac.x, groundY, mac.height);
+  drawWalking(assets.mac, macBox, mac.hipFraction, t, false, true);
+
+  // protagonista
+  const playerBox = getBox(assets.player, player.x, groundY, player.height);
+  drawWalking(assets.player, playerBox, player.hipFraction, t, isWalking, true);
+
+  // burbuja de diálogo
+  if (talking) {
+    drawSpeechBubble(macBox.x + macBox.w / 2, macBox.y, '¡Hola! ¿Cómo estás?', bubbleScale);
+  }
+}
+
+function loop(t) {
+  update();
+  draw(t || 0);
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
