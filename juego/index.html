@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Vilaterra — Encuentro con Mac Arrons</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <h1>Vilaterra — Nivel 1</h1>
+  <p class="hint">
+    <b>A</b> / <b>D</b> para moverte &nbsp;·&nbsp; <b>Espacio</b> para saltar &nbsp;·&nbsp; <b>doble Espacio</b> rápido para empujón
+  </p>
+  <div id="wrap">
+    <canvas id="game" width="960" height="540"></canvas>
+  </div>
+
+  <!-- Orden importante: cada archivo depende de que el anterior ya esté cargado -->
+  <script src="js/config.js"></script>
+  <script src="js/assets.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/mac.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
