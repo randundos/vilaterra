@@ -69,6 +69,71 @@ function drawWalking(ctx, img, box, hipFraction, t, walking, idleBreath = true) 
   ctx.restore();
 }
 
+// Tinte nocturno sobre un fondo diurno ya existente: overlay azulado +
+// estrellas (posiciones deterministas para que no parpadeen) + luna simple.
+// Así no necesitamos un arte de fondo nuevo para las escenas de noche.
+function drawNightOverlay(ctx, w, h) {
+  ctx.save();
+  ctx.fillStyle = CONFIG.NIGHT_TINT;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < CONFIG.STAR_COUNT; i++) {
+    const sx = (i * 137.5) % w;
+    const sy = (i * 71.3) % (h * 0.55);
+    const size = (i % 3 === 0) ? 2 : 1;
+    ctx.globalAlpha = 0.4 + ((i * 53) % 60) / 100;
+    ctx.fillRect(sx, sy, size, size);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = '#f4f1de';
+  ctx.beginPath();
+  ctx.arc(w * 0.82, h * 0.16, 26, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Pose de "manos a la cabeza": el torso se dibuja fijo (con un ligero
+// temblor de pánico) y cada brazo se recorta y gira desde el hombro hacia
+// arriba. armProgress va de 0 (brazos caídos) a 1 (brazos arriba del todo).
+// Es una aproximación estilizada -> puede necesitar ajuste fino visual.
+function drawShocked(ctx, img, box, armProgress) {
+  const { x, y, w, h } = box;
+  const jitter = (Math.random() - 0.5) * 2;
+  const armAngle = armProgress * 2.3; // radianes
+
+  ctx.save();
+  ctx.drawImage(img, x + jitter, y, w, h);
+
+  // brazo del lado izquierdo de la pantalla
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x - 6, y + h * 0.30, w * 0.32, h * 0.34);
+  ctx.clip();
+  const pivotL = { x: x + w * 0.16, y: y + h * 0.34 };
+  ctx.translate(pivotL.x, pivotL.y);
+  ctx.rotate(-armAngle);
+  ctx.translate(-pivotL.x, -pivotL.y);
+  ctx.drawImage(img, x + jitter, y, w, h);
+  ctx.restore();
+
+  // brazo del lado derecho de la pantalla
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + w * 0.68, y + h * 0.30, w * 0.32 + 6, h * 0.34);
+  ctx.clip();
+  const pivotR = { x: x + w * 0.84, y: y + h * 0.34 };
+  ctx.translate(pivotR.x, pivotR.y);
+  ctx.rotate(armAngle);
+  ctx.translate(-pivotR.x, -pivotR.y);
+  ctx.drawImage(img, x + jitter, y, w, h);
+  ctx.restore();
+
+  ctx.restore();
+}
+
 function drawSpeechBubble(ctx, x, y, text, scale) {
   if (scale <= 0.01) return;
   ctx.save();

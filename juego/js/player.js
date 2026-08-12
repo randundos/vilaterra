@@ -1,8 +1,8 @@
-// Estado y comportamiento del protagonista (Blai): movimiento, salto y empujón.
+// Estado y comportamiento del protagonista jugable (Hero): movimiento, salto y empujón.
 const Player = {
   x: 200,
   height: 155,
-  hipFraction: 0.58,
+  hipFraction: 0.60,
   facing: 'right',   // 'right' | 'left'
   vy: 0,             // velocidad vertical (salto)
   jumpOffset: 0,     // 0 = en el suelo, negativo = en el aire
@@ -51,7 +51,7 @@ const Player = {
   },
 
   draw(ctx, t, groundY) {
-    const box = getBox(ASSETS.player, this.x, groundY + this.jumpOffset, this.height);
+    const box = getBox(ASSETS.hero, this.x, groundY + this.jumpOffset, this.height);
 
     ctx.save();
     if (this.facing === 'left') {
@@ -60,7 +60,7 @@ const Player = {
       ctx.scale(-1, 1);
       ctx.translate(-centerX, 0);
     }
-    drawWalking(ctx, ASSETS.player, box, this.hipFraction, t, this.isWalking, true);
+    drawWalking(ctx, ASSETS.hero, box, this.hipFraction, t, this.isWalking, true);
     ctx.restore();
 
     return box;
