@@ -5,8 +5,8 @@ const Input = {
   onJump: null,
   onDash: null,
   onAction: null,  // tecla E: avanzar diálogo / confirmar
-  onMenuUp: null,  // tecla W: mover selector hacia arriba
-  onMenuDown: null, // tecla A: mover selector hacia abajo
+  onMenuUp: null,  // flecha arriba: mover selector hacia arriba
+  onMenuDown: null, // flecha abajo: mover selector hacia abajo
   _lastSpaceTime: -Infinity,
 
   init() {
@@ -18,10 +18,12 @@ const Input = {
       if (k === 'e' && !e.repeat) {
         if (this.onAction) this.onAction();
       }
-      if (k === 'w' && !e.repeat) {
+      if (k === 'arrowup' && !e.repeat) {
+        e.preventDefault(); // evita que la página haga scroll
         if (this.onMenuUp) this.onMenuUp();
       }
-      if (k === 'a' && !e.repeat) {
+      if (k === 'arrowdown' && !e.repeat) {
+        e.preventDefault();
         if (this.onMenuDown) this.onMenuDown();
       }
 

@@ -1,8 +1,9 @@
 // Orquesta la cinemática inicial completa:
 // meteorito -> impacto -> Blai emerge preocupado -> diálogo (E avanza) ->
-// selector Sí/No (W/A mueven, E confirma) -> según respuesta:
+// selector Sí/No (flechas arriba/abajo mueven, E confirma) -> según respuesta:
 //   Sí: Blai da la pista, corre y sale -> fundido a negro -> jugabilidad
-//   No: Hero se da la vuelta y se va -> "FI" + créditos falsos -> fin
+//   No: Blai corre y sale, luego Hero se da la vuelta y se va -> "FI" +
+//       créditos falsos -> fin (no pasa a la jugabilidad)
 const LINE_LOST_CUB = "Ai no! El meu Cub! La Bruna m'ha robat el Cub!";
 const LINE_ASK_HELP = "Ei noi, em podries ajudar si us plau? he perdut el Cub!";
 const LINE_THANKS = "Moltes gràcies, has d'anar a l'església de Sant Joan. Allà està la Bruna.";
@@ -36,6 +37,9 @@ const Cutscene = {
 
   // --- selector Sí/No ---
   selectorIndex: 0, // 0 = Sí, 1 = No
+
+  // a qué fase pasar cuando Blai termine de correr y salir de pantalla
+  nextPhaseAfterBlaiRun: 'wait-skip',
 
   // --- créditos ---
   credits: { subphase: 'fi-drop', subphaseStart: 0, scrollOffset: 0 },
@@ -84,14 +88,17 @@ const Cutscene = {
       }
     } else if (this.phase === 'selector') {
       if (this.selectorIndex === 0) {
-        // Sí -> Blai da la pista y luego se va
+        // Sí -> Blai da la pista y luego se va -> fundido a negro -> jugabilidad
         this.beginDialogue(now, [LINE_THANKS], (n) => {
           Blai.startRunning(n);
+          this.nextPhaseAfterBlaiRun = 'wait-skip';
           this.phase = 'blai-run';
         });
       } else {
-        // No -> Hero se va, la aventura termina aquí
-        this.phase = 'hero-leaves';
+        // No -> primero se va Blai, luego se va Hero, y ahí acaba la aventura
+        Blai.startRunning(now);
+        this.nextPhaseAfterBlaiRun = 'hero-leaves';
+        this.phase = 'blai-run';
       }
     } else if (this.phase === 'wait-skip') {
       this.phase = 'fade-out';
@@ -139,7 +146,7 @@ const Cutscene = {
     } else if (this.phase === 'blai-run') {
       Blai.update(now);
       if (Blai.state === 'done') {
-        this.phase = 'wait-skip';
+        this.phase = this.nextPhaseAfterBlaiRun;
       }
     } else if (this.phase === 'hero-leaves') {
       this._updateHeroLeave(now);
@@ -284,7 +291,7 @@ const Cutscene = {
 
     ctx.font = '12px Trebuchet MS';
     ctx.fillStyle = '#555';
-    ctx.fillText('W arriba · A abajo · E para elegir', CONFIG.CANVAS_W / 2, y + boxH - 8);
+    ctx.fillText('↑ arriba · ↓ abajo · E para elegir', CONFIG.CANVAS_W / 2, y + boxH - 8);
 
     ctx.restore();
   },
