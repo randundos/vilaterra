@@ -86,7 +86,16 @@ const Boar = {
         }
         break;
       case 'hurt':
-        if (now - this.stateStart >= C.HURT_MS) this._setState(now, 'death');
+        if (now - this.stateStart >= C.HURT_MS) {
+          this._setState(now, 'death');
+          // deja las pulseras flotando cerca del suelo, donde el jabalí ha
+          // caído; el Hero las recoge al pasar por encima (ver pickups.js)
+          Pickups.spawnBraceletsAt(
+            this.x,
+            this.groundY - CONFIG.PICKUP.GROUND_OFFSET,
+            CONFIG.BOAR_BRACELET_REWARD
+          );
+        }
         break;
       default:
         break;
@@ -153,7 +162,6 @@ function checkBoarCollision(now, groundY) {
     Player.vy = CONFIG.STOMP_BOUNCE;
     Player.jumpOffset = -1;
     Player.grounded = false;
-    Player.addBracelets(CONFIG.BOAR_BRACELET_REWARD);
   } else {
     const dir = Player.x < Boar.x ? -1 : 1;
     Player.hurt(now, dir);

@@ -51,6 +51,7 @@ function update() {
   Camera.update(Player.x);
   Boar.update(now);
   checkBoarCollision(now, groundY);
+  Pickups.update(now, Player, Camera.x, canvas.width, canvas.height);
 
   // Primer encuentro con Mac Arrons: se dispara una sola vez al acercarse.
   if (!Mac.metHero) {
@@ -77,6 +78,7 @@ function draw(t) {
   Mac.draw(ctx, t, groundY, Camera.x);
   Boar.draw(ctx, now, t, Camera.x);
   Player.draw(ctx, t, groundY, Camera.x);
+  Pickups.draw(ctx, now, Camera.x); // encima del Hero: las que flotan y las que ya van volando
   Dialogue.draw(ctx, getSpeakerBox);
 
   drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);

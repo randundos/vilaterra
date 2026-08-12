@@ -51,6 +51,18 @@ const CONFIG = {
     MARGIN: 16              // margen respecto al borde del canvas
   },
 
+  // Pulseras que quedan flotando al morir un enemigo, hasta que el Hero
+  // pasa por encima; entonces "vuelan" hacia el contador del HUD.
+  PICKUP: {
+    GROUND_OFFSET: 28,      // altura sobre el suelo a la que flotan
+    SPREAD_X: 20,           // separación horizontal entre pulseras al aparecer
+    FLOAT_AMPLITUDE: 5,     // px que suben/bajan mientras flotan
+    FLOAT_SPEED: 0.004,     // velocidad del vaivén (ms)
+    COLLECT_RADIUS: 40,     // distancia del Hero para empezar a recogerlas
+    FLY_DURATION_MS: 550,   // cuánto tardan en volar hasta el contador
+    ICON_SIZE: 30
+  },
+
   // --- Cinemática inicial (caída del meteorito) ---
   NIGHT_TINT: 'rgba(10, 15, 40, 0.55)',
   STAR_COUNT: 60,
