@@ -16,7 +16,7 @@
     overflow: hidden;
   }
   h1 { color: #eee; margin: 10px 0 2px; font-size: 20px; }
-  p.hint { color: #bbb; margin: 0 0 10px; font-size: 14px; }
+  p.hint { color: #bbb; margin: 0 0 10px; font-size: 14px; text-align: center; }
   #wrap {
     position: relative;
     border: 4px solid #000;
@@ -32,7 +32,9 @@
 </head>
 <body>
   <h1>Vilaterra — Nivel 1</h1>
-  <p class="hint">Mantén pulsada la tecla <b>D</b> para avanzar →</p>
+  <p class="hint">
+    <b>A</b> / <b>D</b> para moverte &nbsp;·&nbsp; <b>Espacio</b> para saltar &nbsp;·&nbsp; <b>doble Espacio</b> rápido para empujón
+  </p>
   <div id="wrap">
     <canvas id="game" width="960" height="540"></canvas>
   </div>
@@ -43,7 +45,6 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 // --- Carga de assets (rutas relativas a la carpeta Visuals) ---
-// Ahora usamos las versiones sin fondo (recortadas y con transparencia)
 const assets = {
   bg: new Image(),
   player: new Image(),
@@ -67,12 +68,15 @@ Object.values(assets).forEach(img => {
 // --- Estado del juego ---
 const groundY = canvas.height * 0.80;
 
-// hipFraction: a qué altura (0-1) del sprite empiezan las piernas,
-// usado para partir el dibujo en "torso" y "piernas" y animar el andar
 const player = {
-  x: 90,
+  x: 200,
   height: 155,
-  hipFraction: 0.58
+  hipFraction: 0.58,
+  facing: 'right',   // 'right' | 'left'
+  vy: 0,             // velocidad vertical (salto)
+  jumpOffset: 0,      // 0 = en el suelo, negativo = en el aire
+  grounded: true,
+  dashVX: 0           // velocidad horizontal extra del empujón
 };
 
 const mac = {
@@ -81,18 +85,54 @@ const mac = {
   hipFraction: 0.62
 };
 
-let keyDown = false;
-let talking = false;
+const GRAVITY = 0.6;
+const JUMP_VELOCITY = -12;
+const SPEED = 3.2;
+const DASH_BURST = 10;
+const DASH_DECAY = 0.90;
+const DOUBLE_TAP_MS = 320;
+const TALK_DISTANCE = 130;
+const MIN_X = 60;
+const MAX_X = canvas.width - 60;
+
+const keys = { a: false, d: false };
+let lastSpaceTime = -Infinity;
 let bubbleScale = 0;
-const TALK_DISTANCE = 130; // distancia (px) a la que Mac Arrons saluda
-const SPEED = 2.6;
+let isWalking = false;
 
 window.addEventListener('keydown', (e) => {
-  if (e.key.toLowerCase() === 'd') keyDown = true;
+  const k = e.key.toLowerCase();
+  if (k === 'a') keys.a = true;
+  if (k === 'd') keys.d = true;
+
+  if (k === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    if (!e.repeat) {
+      const now = performance.now();
+      if (now - lastSpaceTime < DOUBLE_TAP_MS) {
+        // doble espacio -> empujón hacia adelante en la dirección a la que mira
+        player.dashVX = (player.facing === 'right' ? 1 : -1) * DASH_BURST;
+        lastSpaceTime = -Infinity;
+      } else {
+        // espacio simple -> salto (solo si está en el suelo)
+        if (player.grounded) {
+          player.vy = JUMP_VELOCITY;
+          player.grounded = false;
+        }
+        lastSpaceTime = now;
+      }
+    }
+  }
 });
 window.addEventListener('keyup', (e) => {
-  if (e.key.toLowerCase() === 'd') keyDown = false;
+  const k = e.key.toLowerCase();
+  if (k === 'a') keys.a = false;
+  if (k === 'd') keys.d = false;
 });
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
 
 function getBox(img, centerX, groundYPos, height) {
   const ratio = img.width / img.height;
@@ -128,7 +168,6 @@ function drawWalking(img, box, hipFraction, t, walking, idleBreath = true) {
     // --- piernas: dos mitades que giran en contrafase alrededor de la cadera ---
     const legAngle = Math.sin(t * 0.022) * 0.30;
 
-    // pierna izquierda
     ctx.save();
     ctx.beginPath();
     ctx.rect(x - 4, hipY - 2, w / 2 + 4, legH + 12);
@@ -140,7 +179,6 @@ function drawWalking(img, box, hipFraction, t, walking, idleBreath = true) {
     ctx.drawImage(img, x, y, w, h);
     ctx.restore();
 
-    // pierna derecha
     ctx.save();
     ctx.beginPath();
     ctx.rect(x + w / 2 - 4, hipY - 2, w / 2 + 8, legH + 12);
@@ -152,7 +190,6 @@ function drawWalking(img, box, hipFraction, t, walking, idleBreath = true) {
     ctx.drawImage(img, x, y, w, h);
     ctx.restore();
   } else {
-    // piernas quietas (sin animar)
     ctx.save();
     ctx.beginPath();
     ctx.rect(x - 4, hipY - 2, w + 8, legH + 12);
@@ -165,6 +202,7 @@ function drawWalking(img, box, hipFraction, t, walking, idleBreath = true) {
 }
 
 function drawSpeechBubble(x, y, text, scale) {
+  if (scale <= 0.01) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
@@ -203,23 +241,36 @@ function drawSpeechBubble(x, y, text, scale) {
   ctx.restore();
 }
 
-let isWalking = false;
-
 function update() {
-  isWalking = !talking && keyDown;
-  if (isWalking) {
-    player.x += SPEED;
+  // --- movimiento horizontal (A / D) ---
+  let moveX = 0;
+  if (keys.d) { moveX += SPEED; player.facing = 'right'; }
+  if (keys.a) { moveX -= SPEED; player.facing = 'left'; }
+
+  player.x += moveX + player.dashVX;
+  if (player.dashVX !== 0) {
+    player.dashVX *= DASH_DECAY;
+    if (Math.abs(player.dashVX) < 0.3) player.dashVX = 0;
+  }
+  player.x = clamp(player.x, MIN_X, MAX_X);
+
+  // --- salto (gravedad simple) ---
+  player.vy += GRAVITY;
+  player.jumpOffset += player.vy;
+  if (player.jumpOffset >= 0) {
+    player.jumpOffset = 0;
+    player.vy = 0;
+    player.grounded = true;
+  } else {
+    player.grounded = false;
   }
 
-  const distance = mac.x - player.x;
-  if (!talking && distance <= TALK_DISTANCE) {
-    talking = true;
-    player.x = mac.x - TALK_DISTANCE;
-  }
+  isWalking = player.grounded && moveX !== 0;
 
-  if (talking && bubbleScale < 1) {
-    bubbleScale = Math.min(1, bubbleScale + 0.12);
-  }
+  // --- burbuja de diálogo según cercanía (aparece/desaparece, no bloquea) ---
+  const distance = Math.abs(mac.x - player.x);
+  const near = distance <= TALK_DISTANCE;
+  bubbleScale += ((near ? 1 : 0) - bubbleScale) * 0.15;
 }
 
 function draw(t) {
@@ -232,14 +283,22 @@ function draw(t) {
   const macBox = getBox(assets.mac, mac.x, groundY, mac.height);
   drawWalking(assets.mac, macBox, mac.hipFraction, t, false, true);
 
-  // protagonista
-  const playerBox = getBox(assets.player, player.x, groundY, player.height);
-  drawWalking(assets.player, playerBox, player.hipFraction, t, isWalking, true);
+  // protagonista (con salto y giro según dirección)
+  const playerGroundY = groundY + player.jumpOffset;
+  const playerBox = getBox(assets.player, player.x, playerGroundY, player.height);
 
-  // burbuja de diálogo
-  if (talking) {
-    drawSpeechBubble(macBox.x + macBox.w / 2, macBox.y, '¡Hola! ¿Cómo estás?', bubbleScale);
+  ctx.save();
+  if (player.facing === 'left') {
+    const centerX = playerBox.x + playerBox.w / 2;
+    ctx.translate(centerX, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-centerX, 0);
   }
+  drawWalking(assets.player, playerBox, player.hipFraction, t, isWalking, true);
+  ctx.restore();
+
+  // burbuja de diálogo de Mac Arrons
+  drawSpeechBubble(macBox.x + macBox.w / 2, macBox.y, 'Ei bro, que dius?', bubbleScale);
 }
 
 function loop(t) {
