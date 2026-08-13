@@ -46,6 +46,18 @@ const CONFIG = {
   // pequeña en la jugabilidad (para que no se vea "encajado" en el nivel).
   HERO_HEIGHT_CUTSCENE: 155,
   HERO_HEIGHT_GAMEPLAY: 112,
+  HERO_SHRINK_MS: 1800,     // cuánto tarda Hero en encogerse hasta desaparecer
+
+  // Escena en la que Mac Arrons rocía a Hero con la manguera tras hablar.
+  MAC_SPRAY: {
+    LEAD_MS: 400,            // rociando un poco antes de que Hero empiece a encogerse
+    PARTICLE_INTERVAL_MS: 25,
+    PARTICLES_PER_TICK: 4,
+    SPEED: 10,
+    TIP_X_FRACTION: 0.02,    // posición real de la boquilla (medida sobre el sprite ya sin agua)
+    TIP_Y_FRACTION: 0.41,
+    Y_OFFSET: 22             // baja un poco la pose de la manguera para que la base toque el suelo
+  },
 
   HERO_MAX_HEALTH: 100,
   HERO_DAMAGE_PER_HIT: 20, // % de vida que quita un golpe de enemigo

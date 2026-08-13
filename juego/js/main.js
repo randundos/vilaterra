@@ -9,8 +9,14 @@ const groundY = CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO;
 
 let mode = 'cutscene'; // 'cutscene' | 'gameplay'
 
-Input.onJump = () => { if (mode === 'gameplay' && !Dialogue.active) Player.jump(); };
-Input.onDash = () => { if (mode === 'gameplay' && !Dialogue.active) Player.dash(); };
+// Escena "Mac rocía a Hero con la manguera" tras el diálogo de encuentro:
+// null | 'spraying' (rociando un momento antes de encoger) | 'shrinking' | 'done'
+let macSprayPhase = null;
+let macSprayStart = 0;
+let macSprayNextParticle = 0;
+
+Input.onJump = () => { if (mode === 'gameplay' && !Dialogue.active && !macSprayPhase) Player.jump(); };
+Input.onDash = () => { if (mode === 'gameplay' && !Dialogue.active && !macSprayPhase) Player.dash(); };
 Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
@@ -27,6 +33,32 @@ Input.init();
 // burbuja de diálogo justo encima de su cabeza.
 function getSpeakerBox(speaker) {
   return speaker === 'mac' ? Mac._box : Player._box;
+}
+
+// Rociada de Mac + encogimiento de Hero, tras terminar el diálogo de
+// encuentro. Congela el resto del mundo (igual que el diálogo) hasta acabar.
+function updateMacSprayScene(now) {
+  const C = CONFIG.MAC_SPRAY;
+
+  if (macSprayPhase === 'spraying' && now - macSprayStart >= C.LEAD_MS) {
+    Player.startShrink(now);
+    macSprayPhase = 'shrinking';
+  }
+  if (macSprayPhase === 'shrinking' && !Player.visible) {
+    macSprayPhase = 'done'; // aquí engancharemos lo que venga después
+  }
+
+  if ((macSprayPhase === 'spraying' || macSprayPhase === 'shrinking') && now >= macSprayNextParticle && Player._box) {
+    const tip = Mac.getHoseTip();
+    const targetX = Player._box.x + Player._box.w / 2;
+    const targetY = Player._box.y + Player._box.h / 2;
+    for (let i = 0; i < C.PARTICLES_PER_TICK; i++) {
+      spawnWaterDroplet(tip.x, tip.y, targetX, targetY, C.SPEED);
+    }
+    macSprayNextParticle = now + C.PARTICLE_INTERVAL_MS;
+  }
+
+  Particles.update(16.7);
 }
 
 function update() {
@@ -48,6 +80,11 @@ function update() {
     return; // el mundo se congela mientras se habla
   }
 
+  if (macSprayPhase) {
+    updateMacSprayScene(now);
+    return; // el mundo se congela durante la rociada + encogimiento
+  }
+
   Player.update();
   Camera.update(Player.x);
   Boar.update(now);
@@ -59,8 +96,12 @@ function update() {
     const distance = Math.abs(Mac.x - Player.x);
     if (distance <= CONFIG.TALK_DISTANCE) {
       Mac.metHero = true;
+      Player.isWalking = false; // deja de andar en cuanto Mac empieza a hablar
       Dialogue.start(now, Mac.introLines, () => {
-        // Aquí engancharemos la siguiente escena cuando lleguen más detalles.
+        Mac.spraying = true;
+        macSprayPhase = 'spraying';
+        macSprayStart = performance.now();
+        macSprayNextParticle = 0;
       });
     }
   }
@@ -79,6 +120,7 @@ function draw(t) {
   Mac.draw(ctx, t, groundY, Camera.x);
   Boar.draw(ctx, now, t, Camera.x);
   Player.draw(ctx, t, groundY, Camera.x);
+  Particles.draw(ctx); // agua de la manguera, por encima de Mac y Hero
   Pickups.draw(ctx, now, Camera.x); // encima del Hero: las que flotan y las que ya van volando
   Dialogue.draw(ctx, getSpeakerBox);
 

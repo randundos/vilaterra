@@ -15,6 +15,9 @@ const Player = {
   invulnerableUntil: 0,
   health: CONFIG.HERO_MAX_HEALTH,
   bracelets: 0,
+  shrinking: false,  // true durante la escena en la que Mac lo rocía con agua
+  shrinkStart: 0,
+  visible: true,     // deja de dibujarse cuando termina de encogerse del todo
 
   jump() {
     if (this.grounded) {
@@ -41,6 +44,20 @@ const Player = {
 
   addBracelets(amount) {
     this.bracelets += amount;
+  },
+
+  // Lo dispara main.js cuando Mac Arrons empieza a rociarlo con la manguera:
+  // a partir de aquí se va encogiendo hasta desaparecer (ver draw()).
+  startShrink(now) {
+    this.shrinking = true;
+    this.shrinkStart = now;
+  },
+
+  // 1 = tamaño normal, 0 = ya ha desaparecido del todo.
+  shrinkScale(now) {
+    if (!this.shrinking) return 1;
+    const elapsed = now - this.shrinkStart;
+    return Math.max(0, 1 - elapsed / CONFIG.HERO_SHRINK_MS);
   },
 
   isInvulnerable(now) {
@@ -80,6 +97,36 @@ const Player = {
   // así que Hero se dibuja directamente en su posición de mundo = pantalla.
   draw(ctx, t, groundY, cameraX = 0) {
     const now = performance.now();
+
+    if (!this.visible) return null;
+
+    if (this.shrinking) {
+      const scale = this.shrinkScale(now);
+      if (scale <= 0) {
+        this.visible = false;
+        return null;
+      }
+      // se encoge "hacia los pies": el ancho se centra y el alto se recorta
+      // por arriba, para que parezca hundirse en el suelo en vez de flotar
+      const img = ASSETS.hero;
+      const fullBox = getBox(img, this.x - cameraX, groundY, this.height);
+      const w = fullBox.w * scale;
+      const h = fullBox.h * scale;
+      const x = fullBox.x + (fullBox.w - w) / 2;
+      const y = fullBox.y + (fullBox.h - h);
+      ctx.save();
+      if (this.facing === 'right') {
+        const centerX = x + w / 2;
+        ctx.translate(centerX, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-centerX, 0);
+      }
+      ctx.drawImage(img, x, y, w, h);
+      ctx.restore();
+      this._box = { x, y, w, h };
+      return this._box;
+    }
+
     const flicker = this.isInvulnerable(now) && Math.floor(t / 80) % 2 === 0;
     const jumping = !this.grounded;
     // en el aire prima la pose de salto; en el suelo, si se está moviendo,

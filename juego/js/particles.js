@@ -75,6 +75,33 @@ function spawnExplosion(x, y) {
   }
 }
 
+// Gota de agua de la manguera de Mac Arrons: sale de (x,y) volando hacia
+// (targetX,targetY) con algo de dispersión y gravedad, para la escena en la
+// que rocía a Hero y este se va encogiendo.
+function spawnWaterDroplet(x, y, targetX, targetY, speed) {
+  const dx = targetX - x;
+  const dy = targetY - y;
+  const dist = Math.hypot(dx, dy) || 1;
+  const spread = (Math.random() - 0.5) * 0.35;
+  const nx = (dx / dist) * Math.cos(spread) - (dy / dist) * Math.sin(spread);
+  const ny = (dx / dist) * Math.sin(spread) + (dy / dist) * Math.cos(spread);
+  const v = speed * (0.85 + Math.random() * 0.3);
+  Particles.spawn({
+    x, y,
+    vx: nx * v,
+    vy: ny * v,
+    life: (dist / v) * 16.7 + 150,
+    color: Math.random() < 0.5 ? '#2ec4f1' : '#ffffff',
+    size: 4.5 + Math.random() * 4,
+    gravity: 0.12,
+    // ni se encoge ni se apaga durante el vuelo (solo al final, de golpe):
+    // así se ve bien todo el trayecto hasta llegar a Hero, no solo al salir
+    // de la boquilla.
+    shrink: false,
+    fade: false
+  });
+}
+
 // Una chispa suelta de la estela de fuego del meteorito al caer.
 function spawnTrailParticle(x, y) {
   Particles.spawn({
