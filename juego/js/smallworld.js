@@ -1,11 +1,11 @@
 // Tramo "Hero pequeño" (tras la escena de la manguera de Mac): un tallo de
-// hierba que hay que golpear con el empujón/patada (doble espacio); al
-// golpearlo desaparece y cae la espada, que Hero recoge al pasar por encima.
+// hierba que hay que golpear con el ataque (clic izquierdo, con espada o sin
+// ella); al golpearlo desaparece y cae la espada, que Hero recoge al pasar
+// por encima.
 //
-// De momento el tallo y la espada se dibujan con formas simples (placeholder)
-// porque aún no tenemos los sprites reales del Hero armado ni del tallo -
-// en cuanto lleguen esas imágenes, solo hay que sustituir GrassBlade.draw()
-// y SwordPickup.draw() (y añadir el sprite armado en player.js).
+// De momento el tallo se dibuja con formas simples (placeholder) porque aún
+// no tenemos un sprite real para él - en cuanto llegue, solo hay que
+// sustituir GrassBlade.draw().
 const GrassBlade = {
   x: CONFIG.SMALL_WORLD.GRASS_BLADE_X,
   height: CONFIG.SMALL_WORLD.GRASS_BLADE_HEIGHT,
@@ -139,7 +139,7 @@ const SwordPickup = {
 };
 
 // Mientras el tallo siga en pie, actúa como un muro sólido: no se puede
-// atravesar hasta que se le golpea con el empujón/patada.
+// atravesar hasta que se le golpea con el ataque (clic izquierdo).
 function blockGrassBlade(player) {
   if (GrassBlade.state !== 'idle') return;
   const halfW = GrassBlade.width / 2 + 14;
@@ -150,14 +150,22 @@ function blockGrassBlade(player) {
   }
 }
 
-// Comprueba si el empujón/patada del Hero ha alcanzado al tallo de hierba.
+// Comprueba si el golpe de Hero (con espada o sin ella, Player.attacking)
+// alcanza al tallo de hierba. El "filo" se extiende un poco más allá de la
+// caja del Hero, hacia el lado al que mira (igual que con la hormiga),
+// porque blockGrassBlade no deja que su cuerpo llegue a solaparse del todo.
 function checkGrassBladeHit(now, player, groundY) {
   if (GrassBlade.state !== 'idle') return;
-  if (Math.abs(player.dashVX) <= CONFIG.DASH_POSE_THRESHOLD) return;
+  if (!player.attacking) return;
 
   const pBox = getBox(ASSETS.hero, player.x, groundY + player.jumpOffset, player.height);
+  const reach = CONFIG.ATTACK.MELEE_REACH;
+  const atkBox = player.facing === 'right'
+    ? { x: pBox.x, y: pBox.y, w: pBox.w + reach, h: pBox.h }
+    : { x: pBox.x - reach, y: pBox.y, w: pBox.w + reach, h: pBox.h };
+
   const bBox = GrassBlade.getBox(groundY);
-  const overlap = pBox.x < bBox.x + bBox.w && pBox.x + pBox.w > bBox.x &&
-                  pBox.y < bBox.y + bBox.h && pBox.y + pBox.h > bBox.y;
+  const overlap = atkBox.x < bBox.x + bBox.w && atkBox.x + atkBox.w > bBox.x &&
+                  atkBox.y < bBox.y + bBox.h && atkBox.y + atkBox.h > bBox.y;
   if (overlap) GrassBlade.hit(now);
 }

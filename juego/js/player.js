@@ -10,7 +10,8 @@ const Player = {
   vy: 0,             // velocidad vertical (salto)
   jumpOffset: 0,     // 0 = en el suelo, negativo = en el aire
   grounded: true,
-  dashVX: 0,         // velocidad horizontal extra (empujón o retroceso al recibir daño)
+  dashVX: 0,         // velocidad horizontal extra (solo la usa ya el retroceso al recibir daño)
+  jumpsUsed: 0,      // 0 = en el suelo, 1 = ya saltó una vez, 2 = ya gastó el salto doble
   isWalking: false,
   invulnerableUntil: 0,
   health: CONFIG.HERO_MAX_HEALTH,
@@ -21,18 +22,22 @@ const Player = {
   levelWidth: CONFIG.LEVEL_WIDTH, // main.js lo cambia según la zona activa
   pits: [],          // [{x, width}] tramos de MUNDO sin suelo; main.js lo rellena según la zona activa
   hasSword: false,   // true tras recoger la espada en el tramo de hierba
-  attacking: false,  // true durante la pose de ataque (clic derecho)
+  attacking: false,  // true durante la pose de ataque (clic izquierdo)
   attackStart: -Infinity,
 
+  // Salto doble real: en el suelo es el salto normal; si ya está en el aire
+  // y todavía le queda un salto (jumpsUsed < MAX_JUMPS), esta MISMA llamada
+  // (se dispara con la tecla Espacio otra vez) le da un segundo impulso
+  // hacia arriba, sin tocar la velocidad horizontal.
   jump() {
     if (this.grounded) {
       this.vy = CONFIG.JUMP_VELOCITY;
       this.grounded = false;
+      this.jumpsUsed = 1;
+    } else if (this.jumpsUsed < CONFIG.MAX_JUMPS) {
+      this.vy = CONFIG.DOUBLE_JUMP_VELOCITY;
+      this.jumpsUsed++;
     }
-  },
-
-  dash() {
-    this.dashVX = (this.facing === 'right' ? 1 : -1) * CONFIG.DASH_BURST;
   },
 
   // Lo llama la colisión con un enemigo cuando el contacto NO es un pisotón:
@@ -51,7 +56,8 @@ const Player = {
     this.bracelets += amount;
   },
 
-  // Lo dispara main.js con el clic derecho, solo si ya tiene la espada.
+  // Lo dispara main.js con el clic izquierdo: con espada es un tajo, sin
+  // ella un golpe/puñetazo (sirve igual para romper el tallo de hierba).
   // Un cooldown evita reiniciar la pose a media animación si llegan varios
   // clics seguidos.
   attack(now) {
@@ -103,6 +109,7 @@ const Player = {
       this.jumpOffset = 0;
       this.vy = 0;
       this.grounded = true;
+      this.jumpsUsed = 0; // vuelve a tener los dos saltos disponibles
     } else {
       this.grounded = false;
     }
@@ -150,31 +157,28 @@ const Player = {
 
     const flicker = this.isInvulnerable(now) && Math.floor(t / 80) % 2 === 0;
     const jumping = !this.grounded;
-    // el ataque (clic derecho) manda sobre todo lo demás mientras dura
+    // el ataque (clic izquierdo) manda sobre todo lo demás mientras dura
     const attacking = this.attacking;
-    // el empujón (doble espacio) manda sobre todo lo demás mientras dura:
-    // se ve como una patada, tanto en el suelo como en el aire
-    const dashing = !attacking && Math.abs(this.dashVX) > CONFIG.DASH_POSE_THRESHOLD;
-    // en el aire (sin empujón) prima la pose de salto; en el suelo, si se
-    // está moviendo, se usa el ciclo real de 8 frames en vez del truco
-    // procedural de piernas
-    const usingWalkFrames = !attacking && !dashing && !jumping && this.isWalking && ASSETS.heroWalk.length > 0;
+    // en el aire prima la pose de salto; en el suelo, si se está moviendo,
+    // se usa el ciclo real de andar
+    const usingWalkFrames = !attacking && !jumping && this.isWalking;
 
     let img;
-    let walkFrameIdx = -1;
     if (attacking) {
       // pose frontal ya armada; la sensación de movimiento la da la estela
       // blanca que se dibuja encima (ver drawAttackTrail)
       img = this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero;
-    } else if (dashing) {
-      img = ASSETS.heroKick;
     } else if (jumping) {
-      img = ASSETS.heroJump;
+      const jumpSet = this.hasSword ? ASSETS.heroJumpSword : ASSETS.heroJump;
+      const idx = pickJumpFrame(this.vy);
+      img = jumpSet[idx] || (this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero);
     } else if (usingWalkFrames) {
-      const seq = CONFIG.HERO_WALK_SEQUENCE;
-      const seqIdx = Math.floor(t / CONFIG.HERO_WALK_FRAME_MS) % seq.length;
-      walkFrameIdx = seq[seqIdx];
-      img = ASSETS.heroWalk[walkFrameIdx];
+      const walkSet = this.hasSword ? ASSETS.heroWalkSword : ASSETS.heroWalk;
+      // orden natural 0..N-1: los frames alternan zancada/paso-cruzado en
+      // ese orden (lo que parecía "al revés" antes era el volteo izq/dcha,
+      // ya corregido más arriba, no el orden de los frames)
+      const idx = walkSet.length ? Math.floor(t / CONFIG.HERO_WALK_FRAME_MS) % walkSet.length : -1;
+      img = walkSet[idx] || (this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero);
     } else {
       // de pie: si ya tiene la espada, se usa directamente la imagen
       // completa armada (no hace falta superponer nada)
@@ -183,29 +187,26 @@ const Player = {
 
     const box = getBox(img, this.x - cameraX, groundY + this.jumpOffset, this.height);
 
+    // Los frames nuevos de salto y de andar (hero_jump*/hero_walk*) miran de
+    // forma natural hacia la DERECHA -> se voltean al ir hacia la izquierda.
+    // El resto de poses (de pie, ataque) son las de siempre y miran de
+    // forma natural hacia la IZQUIERDA -> se voltean al ir hacia la derecha.
+    const naturallyFacesRight = jumping || usingWalkFrames;
+    const shouldFlip = naturallyFacesRight ? this.facing === 'left' : this.facing === 'right';
+
     ctx.save();
     if (flicker) ctx.globalAlpha = 0.4;
-    if (this.facing === 'right') {
-      // el sprite mira de forma natural hacia la izquierda (igual la pose de
-      // salto, la patada y los frames de andar), así que se voltea al ir
-      // hacia la derecha (y no al revés)
+    if (shouldFlip) {
       const centerX = box.x + box.w / 2;
       ctx.translate(centerX, 0);
       ctx.scale(-1, 1);
       ctx.translate(-centerX, 0);
     }
-    if (attacking || dashing || jumping || usingWalkFrames) {
+    if (attacking || jumping || usingWalkFrames) {
       ctx.drawImage(img, box.x, box.y, box.w, box.h);
     } else {
       // parado: pequeño balanceo de "respiración", sin animación de piernas
       drawWalking(ctx, img, box, this.hipFraction, t, false, true);
-    }
-    // salto y frames de andar no traen la espada dibujada -> se superpone
-    // sobre el puño visible de esa pose (la de pie y la de ataque ya usan
-    // heroSwordIdle directamente, y en la patada no se muestra para no
-    // complicar la pose)
-    if (this.hasSword && !attacking && (jumping || usingWalkFrames)) {
-      drawSwordOnPose(ctx, box, jumping, walkFrameIdx);
     }
     ctx.restore();
 
@@ -222,26 +223,16 @@ const Player = {
   }
 };
 
-// Dibuja la espada suelta sobre el puño de Hero para las poses de salto y
-// andar (la de pie ya usa la imagen completa armada). Las coordenadas del
-// puño están medidas a mano por frame en CONFIG.HERO_SWORD; se dibuja
-// dentro del mismo ctx.save()/restore() que el personaje, así que hereda el
-// volteo izquierda/derecha automáticamente.
-function drawSwordOnPose(ctx, box, jumping, walkFrameIdx) {
-  const S = CONFIG.HERO_SWORD;
-  const hand = jumping ? S.JUMP_HAND : S.WALK_HANDS[walkFrameIdx];
-  const swordImg = ASSETS.sword;
-  if (!hand || !swordImg.complete || swordImg.width === 0) return;
-
-  const swordH = box.h * S.HEIGHT_RATIO;
-  const swordW = swordH * (swordImg.width / swordImg.height);
-
-  const handX = box.x + box.w * hand.x;
-  const handY = box.y + box.h * hand.y;
-  const gripX = swordW * S.GRIP_FRACTION.x;
-  const gripY = swordH * S.GRIP_FRACTION.y;
-
-  ctx.drawImage(swordImg, handX - gripX, handY - gripY, swordW, swordH);
+// Elige cuál de los 4 frames de salto mostrar según la velocidad vertical
+// actual: 0=justo tras el impulso (muy rápido hacia
+// arriba), 1=subiendo, 2=cerca del punto más alto, 3=cayendo. Vale igual
+// para el primer salto y para el doble salto (solo cambia lo rápido que se
+// pasa por cada fase, según DOUBLE_JUMP_VELOCITY sea más floja).
+function pickJumpFrame(vy) {
+  if (vy < -11) return 0;
+  if (vy < -3) return 1;
+  if (vy < 3) return 2;
+  return 3;
 }
 
 // Estela blanca del ataque (clic izquierdo): como solo tenemos un frame

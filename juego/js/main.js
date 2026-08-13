@@ -17,8 +17,7 @@ let macSprayStart = 0;
 let macSprayNextParticle = 0;
 
 Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.jump(); };
-Input.onDash = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.dash(); };
-Input.onAttack = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && Player.hasSword) Player.attack(performance.now()); };
+Input.onAttack = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.attack(performance.now()); };
 Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
@@ -80,6 +79,7 @@ function startSmallWorld(now) {
   Player.vy = 0;
   Player.jumpOffset = 0;
   Player.grounded = true;
+  Player.jumpsUsed = 0;
   Player.isWalking = false;
   Player.pits = []; // no hay agujeros en este tramo
 
@@ -100,6 +100,7 @@ function restartLevel1(now) {
   Player.vy = 0;
   Player.jumpOffset = 0;
   Player.grounded = true;
+  Player.jumpsUsed = 0;
   Player.dashVX = 0;
   Player.isWalking = false;
   Player.health = CONFIG.HERO_MAX_HEALTH;
@@ -253,7 +254,7 @@ if (CONFIG.DEBUG) {
       Player.levelWidth = CONFIG.LEVEL_WIDTH;
       Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
       Player.x = CONFIG.PIT.X - 80;
-      Player.vy = 0; Player.jumpOffset = 0; Player.grounded = true; Player.dashVX = 0;
+      Player.vy = 0; Player.jumpOffset = 0; Player.grounded = true; Player.jumpsUsed = 0; Player.dashVX = 0;
       Player.health = CONFIG.HERO_MAX_HEALTH;
       Camera.reset();
     } else if (e.key === '2') {
@@ -269,7 +270,7 @@ if (CONFIG.DEBUG) {
       Player.levelWidth = CONFIG.LEVEL_WIDTH;
       Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
       Player.x = CONFIG.MAC_X - 200;
-      Player.vy = 0; Player.jumpOffset = 0; Player.grounded = true; Player.dashVX = 0;
+      Player.vy = 0; Player.jumpOffset = 0; Player.grounded = true; Player.jumpsUsed = 0; Player.dashVX = 0;
       Player.health = CONFIG.HERO_MAX_HEALTH;
       Camera.reset();
     } else if (e.key === '3') {

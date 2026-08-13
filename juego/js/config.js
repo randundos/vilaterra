@@ -15,12 +15,14 @@ const CONFIG = {
   GROUND_Y_RATIO: 0.85,
 
   GRAVITY: 0.6,
-  JUMP_VELOCITY: -16,     // salto más alto que antes (era -12)
+  JUMP_VELOCITY: -16,        // salto más alto que antes (era -12)
+  DOUBLE_JUMP_VELOCITY: -14, // segundo salto (en el aire), un pelín más flojo que el primero
+  MAX_JUMPS: 2,              // 1 = salto normal, 2 = salto doble real
   SPEED: 3.2,
-  DASH_BURST: 17,         // empujón más largo/evidente (antes 10)
-  DASH_DECAY: 0.94,       // decae más despacio, para que la carrerilla se note más
-  DASH_POSE_THRESHOLD: 2, // por encima de este |dashVX| se muestra/cuenta la patada del empujón
-  DOUBLE_TAP_MS: 320,     // ventana para detectar doble pulsación de Espacio
+  // dashVX ya no lo dispara el jugador (el doble salto es un salto real, no
+  // un empujón): ahora solo lo usa Player.hurt() para el retroceso al
+  // recibir daño, con DASH_DECAY como su fricción.
+  DASH_DECAY: 0.94,
 
   TALK_DISTANCE: 130,     // distancia a la que Mac Arrons saluda
   MARGIN_X: 60,           // límites de movimiento horizontal dentro del nivel
@@ -63,7 +65,12 @@ const CONFIG = {
   // pequeña en la jugabilidad (para que no se vea "encajado" en el nivel).
   HERO_HEIGHT_CUTSCENE: 155,
   HERO_HEIGHT_GAMEPLAY: 112,
-  HERO_HEIGHT_SMALL: 70,    // Hero ya encogido, en el tramo de hierba
+  // Mismo tamaño en pantalla que en el nivel 1: la escena de la manguera ya
+  // transmite que Hero se ha hecho pequeño (encoge hasta desaparecer); una
+  // vez en el tramo de hierba, se mantiene a tamaño normal en pantalla para
+  // que no pierda consonancia con el resto del juego (lo "diminuto" lo dan
+  // el tallo/la hormiga, dibujados grandes en relación a él).
+  HERO_HEIGHT_SMALL: 112,
   HERO_SHRINK_MS: 1800,     // cuánto tarda Hero en encogerse hasta desaparecer
 
   // Escena en la que Mac Arrons rocía a Hero con la manguera tras hablar.
@@ -80,33 +87,19 @@ const CONFIG = {
   HERO_MAX_HEALTH: 100,
   HERO_DAMAGE_PER_HIT: 20, // % de vida que quita un golpe de enemigo
   BOAR_BRACELET_REWARD: 3, // pulseras que suelta el jabalí al morir
+  // Los ciclos de andar (con y sin espada) tienen el mismo número de frames
+  // y se reproducen en orden simple 0..N-1 en bucle; walk_i y walk_sword_i
+  // son la misma fase de zancada, solo cambia si lleva la espada.
   HERO_WALK_FRAME_MS: 90,  // duración de cada frame del ciclo de andar real
-  // orden real de reproducción de los frames de hero_walk (no es 0..7 en
-  // orden numérico: el ciclo natural de zancada es este, con el frame 0
-  // repetido porque es la "pose de paso" que se cruza dos veces por ciclo)
-  HERO_WALK_SEQUENCE: [7, 6, 5, 4, 0, 3, 2, 1, 0],
 
-  // Espada de hierba: en la pose de pie se usa la imagen ya compuesta
-  // (Hero_espada_sinfondo.png), pero para andar/saltar se superpone la
-  // espada suelta (Espada_sinfondo.png) sobre el puño visible de cada
-  // frame. Las fracciones están medidas a mano sobre cada sprite.
+  // Espada suelta (Espada_sinfondo.png): solo hace falta ya para el pickup
+  // tirado en el suelo del tramo de hierba (andar/saltar con espada usan
+  // ahora arte real compuesto, ver ASSETS.heroWalkSword/heroJumpSword).
   HERO_SWORD: {
-    HEIGHT_RATIO: 0.73,             // largo de la espada como fracción del alto de Hero
-    GRIP_FRACTION: { x: 0.49, y: 1.0 }, // punto de agarre dentro de la propia imagen de la espada
-    JUMP_HAND: { x: 0.107, y: 0.176 },
-    WALK_HANDS: [
-      { x: 0.437, y: 0.608 }, // walk_0
-      { x: 0.236, y: 0.645 }, // walk_1
-      { x: 0.136, y: 0.616 }, // walk_2
-      { x: 0.140, y: 0.653 }, // walk_3
-      { x: 0.104, y: 0.647 }, // walk_4
-      { x: 0.218, y: 0.639 }, // walk_5
-      { x: 0.117, y: 0.632 }, // walk_6
-      { x: 0.129, y: 0.661 }  // walk_7
-    ]
+    GRIP_FRACTION: { x: 0.49, y: 1.0 } // punto de agarre dentro de la propia imagen de la espada
   },
 
-  // Ataque con la espada (clic derecho): un único frame frontal (reutiliza
+  // Ataque (clic izquierdo): un único frame frontal (reutiliza
   // la pose de pie ya armada) con una estela blanca que baja de arriba a
   // abajo para dar sensación de movimiento sin necesitar más frames.
   ATTACK: {
@@ -121,7 +114,7 @@ const CONFIG = {
   // esquivarlas saltando hasta acercarse lo suficiente para rematarla con la
   // espada (clic izquierdo).
   ANT: {
-    HEIGHT: 64,
+    HEIGHT: 102,             // escalada junto con HERO_HEIGHT_SMALL, para mantener su proporción respecto a Hero
     SPAWN_X: 1150,           // más allá del tallo/espada, para que ya vaya armado al llegar
     FIRE_INTERVAL_MS: 1500,  // una bala cada segundo y medio
     BULLET_SPEED: 6,
@@ -161,12 +154,12 @@ const CONFIG = {
   SMALL_WORLD: {
     LEVEL_WIDTH: 1600,
     GROUND_Y_RATIO: 0.85,
-    GRASS_BLADE_X: 700,      // posición del tallo que hay que golpear con el empujón
-    GRASS_BLADE_HEIGHT: 260, // bien alta para que destaque (Hero ya es diminuto)
+    GRASS_BLADE_X: 700,      // posición del tallo que hay que golpear con el ataque
+    GRASS_BLADE_HEIGHT: 260, // bien alta para que destaque, como una hierba gigante
     HIT_FADE_MS: 250,        // cuánto tarda el tallo en desvanecerse tras el golpe
     SWORD_FALL_MS: 300,      // cuánto tarda la espada en caer al suelo
     SWORD_COLLECT_RADIUS: 24,
-    SWORD_PICKUP_HEIGHT: 55  // tamaño en pantalla de la espada tirada en el suelo
+    SWORD_PICKUP_HEIGHT: 88  // tamaño en pantalla de la espada tirada en el suelo (escalado junto con Hero)
   },
 
   // --- Cinemática inicial (caída del meteorito) ---
