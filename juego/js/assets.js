@@ -10,6 +10,7 @@ const ASSETS = {
   heroSwordIdle: new Image(), // Hero de pie con la espada (imagen completa, ya armado)
   sword: new Image(),     // espada suelta, para superponer en los frames de andar/salto y el pickup
   bgSmallWorld: new Image(), // fondo del tramo "Hero pequeño" entre la hierba
+  ant: new Image(),       // hormiga con rifle, primer enemigo del tramo de hierba
   blai: new Image(),      // solo aparece en la cinemática inicial
   blaiShock: new Image(), // pose de Blai preocupado (manos a la cabeza) para el diálogo
   blaiPoint: new Image(), // pose de Blai señalando hacia Hero al pedirle ayuda
@@ -29,6 +30,7 @@ ASSETS.heroKick.src = '../Visuals/Hero_patada_sinfondo.png';
 ASSETS.heroSwordIdle.src = '../Visuals/Hero_espada_sinfondo.png';
 ASSETS.sword.src = '../Visuals/Espada_sinfondo.png';
 ASSETS.bgSmallWorld.src = '../Visuals/fondo_hierba.png';
+ASSETS.ant.src = '../Visuals/Hormiga_sinfondo.png';
 
 const HERO_WALK_FRAME_COUNT = 8;
 for (let i = 0; i < HERO_WALK_FRAME_COUNT; i++) {

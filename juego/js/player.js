@@ -20,6 +20,8 @@ const Player = {
   visible: true,     // deja de dibujarse cuando termina de encogerse del todo
   levelWidth: CONFIG.LEVEL_WIDTH, // main.js lo cambia según la zona activa
   hasSword: false,   // true tras recoger la espada en el tramo de hierba
+  attacking: false,  // true durante la pose de ataque (clic derecho)
+  attackStart: -Infinity,
 
   jump() {
     if (this.grounded) {
@@ -46,6 +48,15 @@ const Player = {
 
   addBracelets(amount) {
     this.bracelets += amount;
+  },
+
+  // Lo dispara main.js con el clic derecho, solo si ya tiene la espada.
+  // Un cooldown evita reiniciar la pose a media animación si llegan varios
+  // clics seguidos.
+  attack(now) {
+    if (now - this.attackStart < CONFIG.ATTACK.COOLDOWN_MS) return;
+    this.attacking = true;
+    this.attackStart = now;
   },
 
   // Lo dispara main.js cuando Mac Arrons empieza a rociarlo con la manguera:
@@ -129,19 +140,29 @@ const Player = {
       return this._box;
     }
 
+    if (this.attacking && now - this.attackStart >= CONFIG.ATTACK.DURATION_MS) {
+      this.attacking = false;
+    }
+
     const flicker = this.isInvulnerable(now) && Math.floor(t / 80) % 2 === 0;
     const jumping = !this.grounded;
+    // el ataque (clic derecho) manda sobre todo lo demás mientras dura
+    const attacking = this.attacking;
     // el empujón (doble espacio) manda sobre todo lo demás mientras dura:
     // se ve como una patada, tanto en el suelo como en el aire
-    const dashing = Math.abs(this.dashVX) > CONFIG.DASH_POSE_THRESHOLD;
+    const dashing = !attacking && Math.abs(this.dashVX) > CONFIG.DASH_POSE_THRESHOLD;
     // en el aire (sin empujón) prima la pose de salto; en el suelo, si se
     // está moviendo, se usa el ciclo real de 8 frames en vez del truco
     // procedural de piernas
-    const usingWalkFrames = !dashing && !jumping && this.isWalking && ASSETS.heroWalk.length > 0;
+    const usingWalkFrames = !attacking && !dashing && !jumping && this.isWalking && ASSETS.heroWalk.length > 0;
 
     let img;
     let walkFrameIdx = -1;
-    if (dashing) {
+    if (attacking) {
+      // pose frontal ya armada; la sensación de movimiento la da la estela
+      // blanca que se dibuja encima (ver drawAttackTrail)
+      img = this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero;
+    } else if (dashing) {
       img = ASSETS.heroKick;
     } else if (jumping) {
       img = ASSETS.heroJump;
@@ -169,19 +190,28 @@ const Player = {
       ctx.scale(-1, 1);
       ctx.translate(-centerX, 0);
     }
-    if (dashing || jumping || usingWalkFrames) {
+    if (attacking || dashing || jumping || usingWalkFrames) {
       ctx.drawImage(img, box.x, box.y, box.w, box.h);
     } else {
       // parado: pequeño balanceo de "respiración", sin animación de piernas
       drawWalking(ctx, img, box, this.hipFraction, t, false, true);
     }
     // salto y frames de andar no traen la espada dibujada -> se superpone
-    // sobre el puño visible de esa pose (la de pie ya usa heroSwordIdle
-    // directamente, y en la patada no se muestra para no complicar la pose)
-    if (this.hasSword && (jumping || usingWalkFrames)) {
+    // sobre el puño visible de esa pose (la de pie y la de ataque ya usan
+    // heroSwordIdle directamente, y en la patada no se muestra para no
+    // complicar la pose)
+    if (this.hasSword && !attacking && (jumping || usingWalkFrames)) {
       drawSwordOnPose(ctx, box, jumping, walkFrameIdx);
     }
     ctx.restore();
+
+    // la estela se dibuja FUERA del ctx.save()/restore() del volteo: así se
+    // posiciona directamente en coordenadas de pantalla según this.facing,
+    // en vez de heredar el flip (que la habría dejado apuntando hacia el
+    // lado equivocado la mitad de las veces)
+    if (attacking) {
+      drawAttackTrail(ctx, box, now - this.attackStart, this.facing);
+    }
 
     this._box = box; // se guarda para anclar diálogos por encima de su cabeza
     return box;
@@ -208,4 +238,49 @@ function drawSwordOnPose(ctx, box, jumping, walkFrameIdx) {
   const gripY = swordH * S.GRIP_FRACTION.y;
 
   ctx.drawImage(swordImg, handX - gripX, handY - gripY, swordW, swordH);
+}
+
+// Estela blanca del ataque (clic izquierdo): como solo tenemos un frame
+// frontal estático, la sensación de "tajo de arriba a abajo" la da esta curva
+// que recorre la caja del personaje durante la primera parte de
+// ATTACK.DURATION_MS y luego se desvanece durante el resto.
+// Se dibuja en coordenadas de PANTALLA (fuera del ctx.save()/restore() del
+// volteo del personaje) y usa facing para decidir de qué lado sale: siempre
+// hacia fuera de la silueta, por delante de Hero, nunca cruzando "hacia
+// dentro" del cuerpo.
+function drawAttackTrail(ctx, box, elapsedMs, facing) {
+  const A = CONFIG.ATTACK;
+  const t = Math.min(1, elapsedMs / A.DURATION_MS);
+  const sweepT = Math.min(1, t / A.SWEEP_FRACTION);
+  const fade = t < A.SWEEP_FRACTION ? 1 : 1 - (t - A.SWEEP_FRACTION) / (1 - A.SWEEP_FRACTION);
+  if (fade <= 0) return;
+
+  const dir = facing === 'right' ? 1 : -1;
+  const cx = box.x + box.w / 2;
+  const innerX = cx + dir * box.w * 0.42; // al borde de la silueta
+  const outX = cx + dir * box.w * 0.95;   // bien fuera del cuerpo
+  const topY = box.y + box.h * 0.05;
+  const botY = box.y + box.h * 0.95;
+  const sweepY = topY + (botY - topY) * sweepT;
+
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.shadowColor = 'rgba(255,255,255,0.95)';
+  ctx.shadowBlur = 16;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(innerX, topY);
+  ctx.quadraticCurveTo(outX, (topY + sweepY) / 2, innerX, sweepY);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(innerX + dir * 6, topY + 4);
+  ctx.quadraticCurveTo(outX + dir * 6, (topY + sweepY) / 2, innerX + dir * 6, sweepY - 4);
+  ctx.stroke();
+  ctx.restore();
 }

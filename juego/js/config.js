@@ -90,6 +90,37 @@ const CONFIG = {
     ]
   },
 
+  // Ataque con la espada (clic derecho): un único frame frontal (reutiliza
+  // la pose de pie ya armada) con una estela blanca que baja de arriba a
+  // abajo para dar sensación de movimiento sin necesitar más frames.
+  ATTACK: {
+    DURATION_MS: 320,   // cuánto dura la pose de ataque antes de volver a lo normal
+    COOLDOWN_MS: 380,   // tiempo mínimo entre ataques (algo más que DURATION_MS)
+    SWEEP_FRACTION: 0.55, // fracción de DURATION_MS en la que la estela baja del todo; el resto es el desvanecido
+    MELEE_REACH: 46     // cuánto se extiende el golpe más allá de la caja del Hero, hacia donde mira
+  },
+
+  // Hormiga con rifle: primer enemigo del tramo de hierba (nivel 2). Se queda
+  // quieta y dispara balas a intervalos regulares; el Hero tiene que
+  // esquivarlas saltando hasta acercarse lo suficiente para rematarla con la
+  // espada (clic izquierdo).
+  ANT: {
+    HEIGHT: 64,
+    SPAWN_X: 1150,           // más allá del tallo/espada, para que ya vaya armado al llegar
+    FIRE_INTERVAL_MS: 1500,  // una bala cada segundo y medio
+    BULLET_SPEED: 6,
+    BULLET_RADIUS: 6,
+    BULLET_LIFETIME_MS: 3000,
+    // punta del rifle medida sobre el sprite en su orientación natural
+    // (mirando a la derecha); en pantalla la hormiga siempre va volteada
+    // (dispara hacia la izquierda, hacia el Hero), así que draw() usa
+    // (1 - TIP_X_FRACTION) para la posición real en pantalla.
+    TIP_X_FRACTION: 0.988,
+    TIP_Y_FRACTION: 0.586,
+    HIT_FADE_MS: 250,
+    BRACELET_REWARD: 5 // pulseras que suelta al morir (pisotón o espada)
+  },
+
   HUD: {
     HEALTH_BAR_X: 18,
     HEALTH_BAR_Y: 14,

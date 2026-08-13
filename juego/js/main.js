@@ -18,6 +18,7 @@ let macSprayNextParticle = 0;
 
 Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.jump(); };
 Input.onDash = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.dash(); };
+Input.onAttack = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && Player.hasSword) Player.attack(performance.now()); };
 Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
@@ -84,6 +85,7 @@ function startSmallWorld(now) {
   Camera.reset();
   GrassBlade.reset();
   SwordPickup.active = false;
+  Ant.reset(now, smallGroundY);
 }
 
 function update() {
@@ -109,9 +111,13 @@ function update() {
     Player.update();
     checkGrassBladeHit(now, Player, smallGroundY); // primero el golpe, o nunca pasaría de "sólido"
     blockGrassBlade(Player);
+    checkAntSwordHit(now, Player, smallGroundY);
+    checkAntStomp(now, Player, smallGroundY);
+    Ant.update(now, Player, smallGroundY, Camera.x);
     Camera.update(Player.x, CONFIG.SMALL_WORLD.LEVEL_WIDTH);
     GrassBlade.update(now);
     SwordPickup.update(now, Player, smallGroundY);
+    Pickups.update(now, Player, Camera.x, canvas.width, canvas.height); // las pulseras que suelte la hormiga
     return;
   }
 
@@ -156,8 +162,12 @@ function draw(t) {
     drawSmallWorldBackground(ctx, Camera.x);
     GrassBlade.draw(ctx, now, smallGroundY, Camera.x);
     SwordPickup.draw(ctx, now, smallGroundY, Camera.x);
+    Ant.draw(ctx, now, Camera.x);
     Player.draw(ctx, t, smallGroundY, Camera.x);
+    Pickups.draw(ctx, now, Camera.x); // pulseras sueltas por la hormiga, volando al contador
     Dialogue.draw(ctx, getSpeakerBox);
+    drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
+    drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
     return;
   }
 
