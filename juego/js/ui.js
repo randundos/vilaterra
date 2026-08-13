@@ -60,3 +60,40 @@ function drawBraceletCounter(ctx, canvasW, canvasH, count) {
   ctx.fillText(text, textX, textY);
   ctx.restore();
 }
+
+// Pantalla de muerte estilo Dark Souls: fondo oscurecido + "Has Fallat" en
+// rojo oscuro, con dos líneas finas arriba y abajo, apareciendo poco a poco.
+function drawDeathOverlay(ctx, now, deathStart) {
+  const D = CONFIG.DEATH;
+  const elapsed = now - deathStart;
+  const alpha = Math.max(0, Math.min(1, elapsed / D.FADE_IN_MS));
+  if (alpha <= 0) return;
+
+  const cx = CONFIG.CANVAS_W / 2;
+  const cy = CONFIG.CANVAS_H / 2;
+
+  ctx.save();
+  ctx.fillStyle = `rgba(0, 0, 0, ${0.72 * alpha})`;
+  ctx.fillRect(0, 0, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
+
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#7a1414';
+  ctx.lineWidth = 1.5;
+  const lineW = 380;
+  ctx.beginPath();
+  ctx.moveTo(cx - lineW / 2, cy - 36);
+  ctx.lineTo(cx + lineW / 2, cy - 36);
+  ctx.moveTo(cx - lineW / 2, cy + 36);
+  ctx.lineTo(cx + lineW / 2, cy + 36);
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'italic 54px Georgia, "Times New Roman", serif';
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = '#8b0000';
+  ctx.fillText('Has Fallat', cx, cy);
+  ctx.restore();
+}

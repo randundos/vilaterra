@@ -35,12 +35,12 @@ const CONFIG = {
   MAC_X: 2500,              // posición de Mac Arrons en el nivel (ya no está a la vista al empezar)
 
   // Agujero en el suelo del nivel 1, justo después de la zona del jabalí:
-  // hay que saltarlo (con el salto normal ya se cubre de sobra); si Hero cae
-  // dentro, se reinicia el nivel 1 desde el principio (ver restartLevel1 en
-  // main.js).
+  // hay que saltarlo (con el salto normal llega de sobra, con margen); si
+  // Hero cae dentro, se muestra "Has Fallat" y se reinicia el nivel 1 desde
+  // el principio (ver checkPitFall/startDeath en main.js).
   PIT: {
     X: 1450,
-    WIDTH: 120,
+    WIDTH: 150,
     FALL_TRIGGER: 220 // jumpOffset a partir del cual se considera "ha caído del todo" (bien fuera de pantalla)
   },
 
@@ -60,6 +60,15 @@ const CONFIG = {
   STOMP_BOUNCE: -14,      // rebote del Hero al saltar encima del jabalí
   HERO_KNOCKBACK: 7,      // empuje horizontal al tocar al jabalí de lado
   HERO_INVULN_MS: 1000,   // invulnerabilidad tras recibir un golpe
+
+  // Pantalla de muerte (vida a 0): congela el mundo, muestra "Has Fallat"
+  // estilo Dark Souls, y tras esto reinicia el nivel actual desde el
+  // principio (nivel 1 o el tramo de hierba, según dónde haya muerto).
+  DEATH: {
+    FADE_IN_MS: 900,   // cuánto tarda el texto en aparecer del todo
+    HOLD_MS: 2200,      // cuánto se queda en pantalla antes de reiniciar
+    get DURATION_MS() { return this.FADE_IN_MS + this.HOLD_MS; }
+  },
 
   // Altura de Hero: más grande en la cinemática (primer plano) y más
   // pequeña en la jugabilidad (para que no se vea "encajado" en el nivel).

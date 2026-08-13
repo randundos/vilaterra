@@ -16,8 +16,13 @@ let macSprayPhase = null;
 let macSprayStart = 0;
 let macSprayNextParticle = 0;
 
-Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.jump(); };
-Input.onAttack = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.attack(performance.now()); };
+// Pantalla de muerte (vida a 0): null | 'showing'. Mientras está activa se
+// congela el mundo entero (como el diálogo o la rociada de Mac).
+let deathPhase = null;
+let deathStart = 0;
+
+Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && !deathPhase) Player.jump(); };
+Input.onAttack = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && !deathPhase) Player.attack(performance.now()); };
 Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
@@ -119,9 +124,42 @@ function restartLevel1(now) {
 }
 
 // Hero ha caído lo bastante lejos por el agujero (bien fuera de pantalla) ->
-// se reinicia el nivel 1.
+// misma pantalla de muerte "Has Fallat" que al quedarse sin vida, y luego
+// se reinicia el nivel 1 (lo hace updateDeathScene).
 function checkPitFall(now) {
   if (Player.jumpOffset > CONFIG.PIT.FALL_TRIGGER) {
+    startDeath(now);
+  }
+}
+
+// Reinicia el tramo de hierba desde el principio: a diferencia de
+// startSmallWorld (que solo coloca a Hero al llegar por primera vez, tras
+// encogerse), esto también resetea vida/pulseras/espada, como corresponde
+// a un reinicio real del nivel tras morir.
+function restartSmallWorld(now) {
+  Player.health = CONFIG.HERO_MAX_HEALTH;
+  Player.bracelets = 0;
+  Player.hasSword = false;
+  Pickups.items = [];
+  startSmallWorld(now);
+}
+
+// Lo dispara update() en cuanto la vida de Hero llega a 0: congela el
+// mundo y muestra "Has Fallat" (ver drawDeathOverlay); al cabo de
+// CONFIG.DEATH.DURATION_MS se reinicia el nivel en el que ha muerto.
+function startDeath(now) {
+  if (deathPhase) return;
+  deathPhase = 'showing';
+  deathStart = now;
+}
+
+function updateDeathScene(now) {
+  if (now - deathStart < CONFIG.DEATH.DURATION_MS) return;
+  const diedInSmallWorld = mode === 'small';
+  deathPhase = null;
+  if (diedInSmallWorld) {
+    restartSmallWorld(now);
+  } else {
     restartLevel1(now);
   }
 }
@@ -141,6 +179,11 @@ function update() {
 
   const now = performance.now();
 
+  if (deathPhase) {
+    updateDeathScene(now);
+    return; // el mundo se congela mientras se ve "Has Fallat"
+  }
+
   if (Dialogue.active) {
     Dialogue.update(now);
     return; // el mundo se congela mientras se habla
@@ -157,6 +200,7 @@ function update() {
     GrassBlade.update(now);
     SwordPickup.update(now, Player, smallGroundY);
     Pickups.update(now, Player, Camera.x, canvas.width, canvas.height); // las pulseras que suelte la hormiga
+    if (Player.health <= 0) startDeath(now);
     return;
   }
 
@@ -170,8 +214,14 @@ function update() {
 
   Camera.update(Player.x);
   Boar.update(now);
+  checkBoarSwordHit(now, Player, groundY); // primero el golpe, o el contacto lateral haría daño igualmente
   checkBoarCollision(now, groundY);
   Pickups.update(now, Player, Camera.x, canvas.width, canvas.height);
+
+  if (Player.health <= 0) {
+    startDeath(now);
+    return;
+  }
 
   // Primer encuentro con Mac Arrons: se dispara una sola vez al acercarse.
   if (!Mac.metHero) {
@@ -209,6 +259,7 @@ function draw(t) {
     Dialogue.draw(ctx, getSpeakerBox);
     drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
     drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
+    if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
     return;
   }
 
@@ -222,6 +273,7 @@ function draw(t) {
 
   drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
   drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
+  if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
 }
 
 function loop(t) {
@@ -248,6 +300,7 @@ if (CONFIG.DEBUG) {
       mode = 'gameplay';
       Dialogue.active = false;
       macSprayPhase = null;
+      deathPhase = null;
       hideBoar();
       Player.visible = true;
       Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY;
@@ -262,6 +315,7 @@ if (CONFIG.DEBUG) {
       mode = 'gameplay';
       Dialogue.active = false;
       macSprayPhase = null;
+      deathPhase = null;
       hideBoar();
       Mac.metHero = false;
       Mac.spraying = false;
@@ -275,18 +329,25 @@ if (CONFIG.DEBUG) {
       Camera.reset();
     } else if (e.key === '3') {
       // tramo de hierba, con la espada ya equipada, cerca de la hormiga
+      deathPhase = null;
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
       Player.x = CONFIG.ANT.SPAWN_X - 150;
     } else if (e.key === '4') {
       // reinicia el nivel 1 del todo, desde el principio
+      deathPhase = null;
       restartLevel1(now);
       mode = 'gameplay';
+    } else if (e.key === '5') {
+      // prueba rápida de la pantalla de muerte "Has Fallat", sin tener que
+      // perder toda la vida jugando; al acabar reinicia el nivel actual
+      Player.health = 0;
+      startDeath(now);
     }
   });
 
-  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la hormiga · 4 = reiniciar nivel 1');
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte');
 }
 
 loadAssets(() => {

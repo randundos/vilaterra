@@ -1,7 +1,8 @@
 // El jabalí: primer enemigo del nivel. Patrulla de lado a lado dentro de su
 // zona, y usa las 6 animaciones reales del sprite (idle, move, turn, stop,
-// hurt, death). Saltarle encima lo mata (estilo Mario); tocarlo de lado
-// empuja y hace "daño" (invulnerabilidad breve) al Hero.
+// hurt, death). Se mata saltándole encima (estilo Mario) o golpeándolo con
+// el ataque (con espada o sin ella); tocarlo de lado sin atacar empuja y
+// hace "daño" (invulnerabilidad breve) al Hero.
 const Boar = {
   x: 0,
   baseX: 0,
@@ -165,5 +166,25 @@ function checkBoarCollision(now, groundY) {
   } else {
     const dir = Player.x < Boar.x ? -1 : 1;
     Player.hurt(now, dir);
+  }
+}
+
+// Comprueba si el ataque de Hero (Player.attacking, con espada o sin ella)
+// alcanza al jabalí; lo mata igual que el pisotón. El filo se extiende un
+// poco más allá de la caja del Hero, hacia el lado al que mira (igual que
+// con la hormiga y el tallo de hierba).
+function checkBoarSwordHit(now, player, groundY) {
+  if (!Boar.active || !Boar.alive) return;
+  if (Boar.state === 'hurt' || Boar.state === 'death') return;
+  if (!player.attacking) return;
+
+  const pBox = getBox(ASSETS.hero, player.x, groundY + player.jumpOffset, player.height);
+  const reach = CONFIG.ATTACK.MELEE_REACH;
+  const atkBox = player.facing === 'right'
+    ? { x: pBox.x, y: pBox.y, w: pBox.w + reach, h: pBox.h }
+    : { x: pBox.x - reach, y: pBox.y, w: pBox.w + reach, h: pBox.h };
+
+  if (rectsOverlap(atkBox, Boar.getBox())) {
+    Boar.takeStomp(now); // mismo estado hurt -> death que el pisotón
   }
 }
