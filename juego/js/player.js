@@ -19,6 +19,7 @@ const Player = {
   shrinkStart: 0,
   visible: true,     // deja de dibujarse cuando termina de encogerse del todo
   levelWidth: CONFIG.LEVEL_WIDTH, // main.js lo cambia según la zona activa
+  pits: [],          // [{x, width}] tramos de MUNDO sin suelo; main.js lo rellena según la zona activa
   hasSword: false,   // true tras recoger la espada en el tramo de hierba
   attacking: false,  // true durante la pose de ataque (clic derecho)
   attackStart: -Infinity,
@@ -95,7 +96,10 @@ const Player = {
     // --- salto (gravedad simple) ---
     this.vy += CONFIG.GRAVITY;
     this.jumpOffset += this.vy;
-    if (this.jumpOffset >= 0) {
+    // si está justo encima de un agujero, no hay suelo en el que aterrizar:
+    // se deja caer en vez de clavarse a jumpOffset 0 (ver checkPitFall en main.js)
+    const overPit = this.pits.some((p) => this.x > p.x && this.x < p.x + p.width);
+    if (this.jumpOffset >= 0 && !overPit) {
       this.jumpOffset = 0;
       this.vy = 0;
       this.grounded = true;

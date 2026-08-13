@@ -138,6 +138,39 @@ function drawLevelBackground(ctx, cameraX) {
   const groundH = CONFIG.CANVAS_H - groundY;
   drawParallaxLayer(ctx, ASSETS.bgSky, CONFIG.CANVAS_W, 0, groundY, cameraX, CONFIG.PARALLAX_SKY_FACTOR);
   drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
+  drawGroundPit(ctx, cameraX, groundY, groundH);
+}
+
+// Agujero en el suelo (CONFIG.PIT): un hueco oscuro con degradado (sensación
+// de profundidad) y un borde superior irregular para que parezca tierra
+// rota, en vez de un simple rectángulo negro. El desnivel es determinista
+// (basado en el índice del "diente") para que no tiemble entre frames.
+function drawGroundPit(ctx, cameraX, groundY, groundH) {
+  const P = CONFIG.PIT;
+  const screenX = P.X - cameraX;
+  if (screenX + P.WIDTH < -20 || screenX > CONFIG.CANVAS_W + 20) return;
+
+  ctx.save();
+  const grad = ctx.createLinearGradient(0, groundY, 0, groundY + groundH);
+  grad.addColorStop(0, '#141210');
+  grad.addColorStop(1, '#000000');
+  ctx.fillStyle = grad;
+
+  const teeth = 7;
+  const toothW = P.WIDTH / teeth;
+  ctx.beginPath();
+  ctx.moveTo(screenX, groundY + groundH);
+  ctx.lineTo(screenX, groundY);
+  for (let i = 0; i <= teeth; i++) {
+    const tx = screenX + i * toothW;
+    const jag = (i % 2 === 0 ? 1 : -1) * (4 + (i * 37) % 6);
+    ctx.lineTo(tx, groundY + jag);
+  }
+  ctx.lineTo(screenX + P.WIDTH, groundY);
+  ctx.lineTo(screenX + P.WIDTH, groundY + groundH);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 // Fondo del tramo "Hero pequeño": mismo suelo que el nivel 1 (para que los

@@ -1,6 +1,12 @@
 // Constantes de configuración del juego. Ajusta aquí valores de física,
 // velocidades y distancias en vez de buscarlos repartidos por el código.
 const CONFIG = {
+  // Atajos de teclado 1-4 para saltar directamente a puntos clave del juego
+  // sin tener que rejugar desde el principio cada vez (ver el bloque de
+  // depuración al final de main.js). Ponlo a false antes de dar el juego
+  // por "terminado" para el jugador final.
+  DEBUG: true,
+
   CANVAS_W: 960,
   CANVAS_H: 540,
   // Altura del "suelo" SOLO en la jugabilidad (fracción del canvas). La
@@ -25,6 +31,16 @@ const CONFIG = {
   // personajes) -> así los pies quedan exactamente al nivel de la textura.
   PARALLAX_SKY_FACTOR: 0.35, // el cielo/árboles se mueve a este % de la velocidad de la cámara
   MAC_X: 2500,              // posición de Mac Arrons en el nivel (ya no está a la vista al empezar)
+
+  // Agujero en el suelo del nivel 1, justo después de la zona del jabalí:
+  // hay que saltarlo (con el salto normal ya se cubre de sobra); si Hero cae
+  // dentro, se reinicia el nivel 1 desde el principio (ver restartLevel1 en
+  // main.js).
+  PIT: {
+    X: 1450,
+    WIDTH: 120,
+    FALL_TRIGGER: 220 // jumpOffset a partir del cual se considera "ha caído del todo" (bien fuera de pantalla)
+  },
 
   BOAR: {
     SPAWN_X: 1150,

@@ -81,11 +81,48 @@ function startSmallWorld(now) {
   Player.jumpOffset = 0;
   Player.grounded = true;
   Player.isWalking = false;
+  Player.pits = []; // no hay agujeros en este tramo
 
   Camera.reset();
   GrassBlade.reset();
   SwordPickup.active = false;
   Ant.reset(now, smallGroundY);
+}
+
+// Reinicia el nivel 1 desde el principio: lo dispara la caída por el
+// agujero (ver checkPitFall más abajo). Vuelve todo a su estado inicial de
+// jugabilidad (posición, vida, pulseras, jabalí) como si se acabara de
+// terminar la cinemática.
+function restartLevel1(now) {
+  Player.x = 200;
+  Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY;
+  Player.facing = 'right';
+  Player.vy = 0;
+  Player.jumpOffset = 0;
+  Player.grounded = true;
+  Player.dashVX = 0;
+  Player.isWalking = false;
+  Player.health = CONFIG.HERO_MAX_HEALTH;
+  Player.bracelets = 0;
+  Player.invulnerableUntil = 0;
+  Player.levelWidth = CONFIG.LEVEL_WIDTH;
+  Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
+
+  Pickups.items = [];
+  Camera.reset();
+  Boar.init(now, groundY);
+
+  Mac.metHero = false;
+  Mac.spraying = false;
+  macSprayPhase = null;
+}
+
+// Hero ha caído lo bastante lejos por el agujero (bien fuera de pantalla) ->
+// se reinicia el nivel 1.
+function checkPitFall(now) {
+  if (Player.jumpOffset > CONFIG.PIT.FALL_TRIGGER) {
+    restartLevel1(now);
+  }
 }
 
 function update() {
@@ -94,6 +131,7 @@ function update() {
     if (Cutscene.finished) {
       mode = 'gameplay';
       Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY; // más pequeño que en la cinemática
+      Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
       Camera.reset();
       Boar.init(performance.now(), groundY);
     }
@@ -127,6 +165,8 @@ function update() {
   }
 
   Player.update();
+  checkPitFall(now); // si ha caído del todo, restartLevel1 ya ha vuelto a colocar a Hero al principio
+
   Camera.update(Player.x);
   Boar.update(now);
   checkBoarCollision(now, groundY);
@@ -187,6 +227,65 @@ function loop(t) {
   update();
   draw(t || 0);
   requestAnimationFrame(loop);
+}
+
+// --- Atajos de depuración: teclas 1-4 para saltar a puntos clave del juego
+// sin tener que rejugar desde el principio cada vez. Solo activos si
+// CONFIG.DEBUG es true (ver config.js); no tocan el HUD ni el input normal.
+if (CONFIG.DEBUG) {
+  const hideBoar = () => {
+    Boar.active = false;
+    Boar.alive = false; // con las dos a false, Boar.draw()/update() se saltan del todo
+  };
+
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    const now = performance.now();
+
+    if (e.key === '1') {
+      // justo antes del agujero
+      mode = 'gameplay';
+      Dialogue.active = false;
+      macSprayPhase = null;
+      hideBoar();
+      Player.visible = true;
+      Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY;
+      Player.levelWidth = CONFIG.LEVEL_WIDTH;
+      Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
+      Player.x = CONFIG.PIT.X - 80;
+      Player.vy = 0; Player.jumpOffset = 0; Player.grounded = true; Player.dashVX = 0;
+      Player.health = CONFIG.HERO_MAX_HEALTH;
+      Camera.reset();
+    } else if (e.key === '2') {
+      // justo antes de Mac Arrons (para probar el diálogo + la manguera)
+      mode = 'gameplay';
+      Dialogue.active = false;
+      macSprayPhase = null;
+      hideBoar();
+      Mac.metHero = false;
+      Mac.spraying = false;
+      Player.visible = true;
+      Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY;
+      Player.levelWidth = CONFIG.LEVEL_WIDTH;
+      Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
+      Player.x = CONFIG.MAC_X - 200;
+      Player.vy = 0; Player.jumpOffset = 0; Player.grounded = true; Player.dashVX = 0;
+      Player.health = CONFIG.HERO_MAX_HEALTH;
+      Camera.reset();
+    } else if (e.key === '3') {
+      // tramo de hierba, con la espada ya equipada, cerca de la hormiga
+      startSmallWorld(now);
+      GrassBlade.state = 'gone';
+      Player.hasSword = true;
+      Player.x = CONFIG.ANT.SPAWN_X - 150;
+    } else if (e.key === '4') {
+      // reinicia el nivel 1 del todo, desde el principio
+      restartLevel1(now);
+      mode = 'gameplay';
+    }
+  });
+
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la hormiga · 4 = reiniciar nivel 1');
 }
 
 loadAssets(() => {
