@@ -6,8 +6,9 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const groundY = CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO;
+const smallGroundY = CONFIG.CANVAS_H * CONFIG.SMALL_WORLD.GROUND_Y_RATIO;
 
-let mode = 'cutscene'; // 'cutscene' | 'gameplay'
+let mode = 'cutscene'; // 'cutscene' | 'gameplay' | 'small'
 
 // Escena "Mac rocía a Hero con la manguera" tras el diálogo de encuentro:
 // null | 'spraying' (rociando un momento antes de encoger) | 'shrinking' | 'done'
@@ -15,13 +16,13 @@ let macSprayPhase = null;
 let macSprayStart = 0;
 let macSprayNextParticle = 0;
 
-Input.onJump = () => { if (mode === 'gameplay' && !Dialogue.active && !macSprayPhase) Player.jump(); };
-Input.onDash = () => { if (mode === 'gameplay' && !Dialogue.active && !macSprayPhase) Player.dash(); };
+Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.jump(); };
+Input.onDash = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase) Player.dash(); };
 Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
     Cutscene.handleAction(now);
-  } else if (mode === 'gameplay' && Dialogue.active) {
+  } else if ((mode === 'gameplay' || mode === 'small') && Dialogue.active) {
     Dialogue.advance(now);
   }
 };
@@ -45,7 +46,8 @@ function updateMacSprayScene(now) {
     macSprayPhase = 'shrinking';
   }
   if (macSprayPhase === 'shrinking' && !Player.visible) {
-    macSprayPhase = 'done'; // aquí engancharemos lo que venga después
+    macSprayPhase = 'done';
+    startSmallWorld(now);
   }
 
   if ((macSprayPhase === 'spraying' || macSprayPhase === 'shrinking') && now >= macSprayNextParticle && Player._box) {
@@ -59,6 +61,29 @@ function updateMacSprayScene(now) {
   }
 
   Particles.update(16.7);
+}
+
+// Arranca el tramo "Hero pequeño" entre la hierba, justo después de que
+// Hero termine de encogerse del todo con la manguera de Mac.
+function startSmallWorld(now) {
+  mode = 'small';
+  macSprayPhase = null; // ya no debe seguir congelando el mundo
+
+  Player.visible = true;
+  Player.shrinking = false;
+  Player.height = CONFIG.HERO_HEIGHT_SMALL;
+  Player.levelWidth = CONFIG.SMALL_WORLD.LEVEL_WIDTH;
+  Player.x = CONFIG.MARGIN_X + 40;
+  Player.facing = 'right';
+  Player.dashVX = 0;
+  Player.vy = 0;
+  Player.jumpOffset = 0;
+  Player.grounded = true;
+  Player.isWalking = false;
+
+  Camera.reset();
+  GrassBlade.reset();
+  SwordPickup.active = false;
 }
 
 function update() {
@@ -78,6 +103,16 @@ function update() {
   if (Dialogue.active) {
     Dialogue.update(now);
     return; // el mundo se congela mientras se habla
+  }
+
+  if (mode === 'small') {
+    Player.update();
+    checkGrassBladeHit(now, Player, smallGroundY); // primero el golpe, o nunca pasaría de "sólido"
+    blockGrassBlade(Player);
+    Camera.update(Player.x, CONFIG.SMALL_WORLD.LEVEL_WIDTH);
+    GrassBlade.update(now);
+    SwordPickup.update(now, Player, smallGroundY);
+    return;
   }
 
   if (macSprayPhase) {
@@ -116,6 +151,16 @@ function draw(t) {
   }
 
   const now = performance.now();
+
+  if (mode === 'small') {
+    drawSmallWorldBackground(ctx, Camera.x);
+    GrassBlade.draw(ctx, now, smallGroundY, Camera.x);
+    SwordPickup.draw(ctx, now, smallGroundY, Camera.x);
+    Player.draw(ctx, t, smallGroundY, Camera.x);
+    Dialogue.draw(ctx, getSpeakerBox);
+    return;
+  }
+
   drawLevelBackground(ctx, Camera.x);
   Mac.draw(ctx, t, groundY, Camera.x);
   Boar.draw(ctx, now, t, Camera.x);

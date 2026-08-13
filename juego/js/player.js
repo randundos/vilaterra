@@ -18,6 +18,8 @@ const Player = {
   shrinking: false,  // true durante la escena en la que Mac lo rocía con agua
   shrinkStart: 0,
   visible: true,     // deja de dibujarse cuando termina de encogerse del todo
+  levelWidth: CONFIG.LEVEL_WIDTH, // main.js lo cambia según la zona activa
+  hasSword: false,   // true tras recoger la espada en el tramo de hierba
 
   jump() {
     if (this.grounded) {
@@ -76,7 +78,7 @@ const Player = {
       if (Math.abs(this.dashVX) < 0.3) this.dashVX = 0;
     }
 
-    const maxX = CONFIG.LEVEL_WIDTH - CONFIG.MARGIN_X;
+    const maxX = this.levelWidth - CONFIG.MARGIN_X;
     this.x = Math.max(CONFIG.MARGIN_X, Math.min(maxX, this.x));
 
     // --- salto (gravedad simple) ---
@@ -129,19 +131,29 @@ const Player = {
 
     const flicker = this.isInvulnerable(now) && Math.floor(t / 80) % 2 === 0;
     const jumping = !this.grounded;
-    // en el aire prima la pose de salto; en el suelo, si se está moviendo,
-    // se usa el ciclo real de 8 frames en vez del truco procedural de piernas
-    const usingWalkFrames = !jumping && this.isWalking && ASSETS.heroWalk.length > 0;
+    // el empujón (doble espacio) manda sobre todo lo demás mientras dura:
+    // se ve como una patada, tanto en el suelo como en el aire
+    const dashing = Math.abs(this.dashVX) > CONFIG.DASH_POSE_THRESHOLD;
+    // en el aire (sin empujón) prima la pose de salto; en el suelo, si se
+    // está moviendo, se usa el ciclo real de 8 frames en vez del truco
+    // procedural de piernas
+    const usingWalkFrames = !dashing && !jumping && this.isWalking && ASSETS.heroWalk.length > 0;
 
     let img;
-    if (jumping) {
+    let walkFrameIdx = -1;
+    if (dashing) {
+      img = ASSETS.heroKick;
+    } else if (jumping) {
       img = ASSETS.heroJump;
     } else if (usingWalkFrames) {
       const seq = CONFIG.HERO_WALK_SEQUENCE;
       const seqIdx = Math.floor(t / CONFIG.HERO_WALK_FRAME_MS) % seq.length;
-      img = ASSETS.heroWalk[seq[seqIdx]];
+      walkFrameIdx = seq[seqIdx];
+      img = ASSETS.heroWalk[walkFrameIdx];
     } else {
-      img = ASSETS.hero;
+      // de pie: si ya tiene la espada, se usa directamente la imagen
+      // completa armada (no hace falta superponer nada)
+      img = this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero;
     }
 
     const box = getBox(img, this.x - cameraX, groundY + this.jumpOffset, this.height);
@@ -150,18 +162,24 @@ const Player = {
     if (flicker) ctx.globalAlpha = 0.4;
     if (this.facing === 'right') {
       // el sprite mira de forma natural hacia la izquierda (igual la pose de
-      // salto y los frames de andar), así que se voltea al ir hacia la
-      // derecha (y no al revés)
+      // salto, la patada y los frames de andar), así que se voltea al ir
+      // hacia la derecha (y no al revés)
       const centerX = box.x + box.w / 2;
       ctx.translate(centerX, 0);
       ctx.scale(-1, 1);
       ctx.translate(-centerX, 0);
     }
-    if (jumping || usingWalkFrames) {
+    if (dashing || jumping || usingWalkFrames) {
       ctx.drawImage(img, box.x, box.y, box.w, box.h);
     } else {
       // parado: pequeño balanceo de "respiración", sin animación de piernas
       drawWalking(ctx, img, box, this.hipFraction, t, false, true);
+    }
+    // salto y frames de andar no traen la espada dibujada -> se superpone
+    // sobre el puño visible de esa pose (la de pie ya usa heroSwordIdle
+    // directamente, y en la patada no se muestra para no complicar la pose)
+    if (this.hasSword && (jumping || usingWalkFrames)) {
+      drawSwordOnPose(ctx, box, jumping, walkFrameIdx);
     }
     ctx.restore();
 
@@ -169,3 +187,25 @@ const Player = {
     return box;
   }
 };
+
+// Dibuja la espada suelta sobre el puño de Hero para las poses de salto y
+// andar (la de pie ya usa la imagen completa armada). Las coordenadas del
+// puño están medidas a mano por frame en CONFIG.HERO_SWORD; se dibuja
+// dentro del mismo ctx.save()/restore() que el personaje, así que hereda el
+// volteo izquierda/derecha automáticamente.
+function drawSwordOnPose(ctx, box, jumping, walkFrameIdx) {
+  const S = CONFIG.HERO_SWORD;
+  const hand = jumping ? S.JUMP_HAND : S.WALK_HANDS[walkFrameIdx];
+  const swordImg = ASSETS.sword;
+  if (!hand || !swordImg.complete || swordImg.width === 0) return;
+
+  const swordH = box.h * S.HEIGHT_RATIO;
+  const swordW = swordH * (swordImg.width / swordImg.height);
+
+  const handX = box.x + box.w * hand.x;
+  const handY = box.y + box.h * hand.y;
+  const gripX = swordW * S.GRIP_FRACTION.x;
+  const gripY = swordH * S.GRIP_FRACTION.y;
+
+  ctx.drawImage(swordImg, handX - gripX, handY - gripY, swordW, swordH);
+}

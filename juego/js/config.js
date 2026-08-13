@@ -11,8 +11,9 @@ const CONFIG = {
   GRAVITY: 0.6,
   JUMP_VELOCITY: -16,     // salto más alto que antes (era -12)
   SPEED: 3.2,
-  DASH_BURST: 10,
-  DASH_DECAY: 0.90,
+  DASH_BURST: 17,         // empujón más largo/evidente (antes 10)
+  DASH_DECAY: 0.94,       // decae más despacio, para que la carrerilla se note más
+  DASH_POSE_THRESHOLD: 2, // por encima de este |dashVX| se muestra/cuenta la patada del empujón
   DOUBLE_TAP_MS: 320,     // ventana para detectar doble pulsación de Espacio
 
   TALK_DISTANCE: 130,     // distancia a la que Mac Arrons saluda
@@ -46,6 +47,7 @@ const CONFIG = {
   // pequeña en la jugabilidad (para que no se vea "encajado" en el nivel).
   HERO_HEIGHT_CUTSCENE: 155,
   HERO_HEIGHT_GAMEPLAY: 112,
+  HERO_HEIGHT_SMALL: 70,    // Hero ya encogido, en el tramo de hierba
   HERO_SHRINK_MS: 1800,     // cuánto tarda Hero en encogerse hasta desaparecer
 
   // Escena en la que Mac Arrons rocía a Hero con la manguera tras hablar.
@@ -68,6 +70,26 @@ const CONFIG = {
   // repetido porque es la "pose de paso" que se cruza dos veces por ciclo)
   HERO_WALK_SEQUENCE: [7, 6, 5, 4, 0, 3, 2, 1, 0],
 
+  // Espada de hierba: en la pose de pie se usa la imagen ya compuesta
+  // (Hero_espada_sinfondo.png), pero para andar/saltar se superpone la
+  // espada suelta (Espada_sinfondo.png) sobre el puño visible de cada
+  // frame. Las fracciones están medidas a mano sobre cada sprite.
+  HERO_SWORD: {
+    HEIGHT_RATIO: 0.73,             // largo de la espada como fracción del alto de Hero
+    GRIP_FRACTION: { x: 0.49, y: 1.0 }, // punto de agarre dentro de la propia imagen de la espada
+    JUMP_HAND: { x: 0.107, y: 0.176 },
+    WALK_HANDS: [
+      { x: 0.437, y: 0.608 }, // walk_0
+      { x: 0.236, y: 0.645 }, // walk_1
+      { x: 0.136, y: 0.616 }, // walk_2
+      { x: 0.140, y: 0.653 }, // walk_3
+      { x: 0.104, y: 0.647 }, // walk_4
+      { x: 0.218, y: 0.639 }, // walk_5
+      { x: 0.117, y: 0.632 }, // walk_6
+      { x: 0.129, y: 0.661 }  // walk_7
+    ]
+  },
+
   HUD: {
     HEALTH_BAR_X: 18,
     HEALTH_BAR_Y: 14,
@@ -86,6 +108,18 @@ const CONFIG = {
     COLLECT_RADIUS: 40,     // distancia del Hero para empezar a recogerlas
     FLY_DURATION_MS: 550,   // cuánto tardan en volar hasta el contador
     ICON_SIZE: 30
+  },
+
+  // --- Tramo "Hero pequeño" en la hierba, tras la escena de la manguera ---
+  SMALL_WORLD: {
+    LEVEL_WIDTH: 1600,
+    GROUND_Y_RATIO: 0.85,
+    GRASS_BLADE_X: 700,      // posición del tallo que hay que golpear con el empujón
+    GRASS_BLADE_HEIGHT: 260, // bien alta para que destaque (Hero ya es diminuto)
+    HIT_FADE_MS: 250,        // cuánto tarda el tallo en desvanecerse tras el golpe
+    SWORD_FALL_MS: 300,      // cuánto tarda la espada en caer al suelo
+    SWORD_COLLECT_RADIUS: 24,
+    SWORD_PICKUP_HEIGHT: 55  // tamaño en pantalla de la espada tirada en el suelo
   },
 
   // --- Cinemática inicial (caída del meteorito) ---

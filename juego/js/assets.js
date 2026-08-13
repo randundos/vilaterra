@@ -6,6 +6,10 @@ const ASSETS = {
   hero: new Image(),      // protagonista jugable (aún sin nombre in-game, "Hero" de momento), pose de pie/idle
   heroJump: new Image(),  // pose de salto (mientras está en el aire)
   heroWalk: [],           // 8 frames reales del ciclo de andar (sustituyen al truco procedural)
+  heroKick: new Image(),  // patada del empujón/doble-espacio (también usada para golpear el tallo)
+  heroSwordIdle: new Image(), // Hero de pie con la espada (imagen completa, ya armado)
+  sword: new Image(),     // espada suelta, para superponer en los frames de andar/salto y el pickup
+  bgSmallWorld: new Image(), // fondo del tramo "Hero pequeño" entre la hierba
   blai: new Image(),      // solo aparece en la cinemática inicial
   blaiShock: new Image(), // pose de Blai preocupado (manos a la cabeza) para el diálogo
   blaiPoint: new Image(), // pose de Blai señalando hacia Hero al pedirle ayuda
@@ -21,6 +25,10 @@ ASSETS.bgSky.src = '../Visuals/fondo_cielo.png';
 ASSETS.bgGround.src = '../Visuals/fondo_suelo.png';
 ASSETS.hero.src = '../Visuals/Hero_sinfondo.png';
 ASSETS.heroJump.src = '../Visuals/Hero_salto_sinfondo.png';
+ASSETS.heroKick.src = '../Visuals/Hero_patada_sinfondo.png';
+ASSETS.heroSwordIdle.src = '../Visuals/Hero_espada_sinfondo.png';
+ASSETS.sword.src = '../Visuals/Espada_sinfondo.png';
+ASSETS.bgSmallWorld.src = '../Visuals/fondo_hierba.png';
 
 const HERO_WALK_FRAME_COUNT = 8;
 for (let i = 0; i < HERO_WALK_FRAME_COUNT; i++) {

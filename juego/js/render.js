@@ -140,6 +140,18 @@ function drawLevelBackground(ctx, cameraX) {
   drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
 }
 
+// Fondo del tramo "Hero pequeño": mismo suelo que el nivel 1 (para que los
+// pies sigan encajando con esa textura), solo cambia la capa de fondo/cielo
+// por la nueva imagen de hierba. Esa imagen ya está hecha para repetirse sin
+// costuras (el borde derecho continúa en el izquierdo), así que se tilea
+// directamente, sin el truco de espejo que sí hace falta para el suelo.
+function drawSmallWorldBackground(ctx, cameraX) {
+  const groundY = CONFIG.CANVAS_H * CONFIG.SMALL_WORLD.GROUND_Y_RATIO;
+  const groundH = CONFIG.CANVAS_H - groundY;
+  drawParallaxLayer(ctx, ASSETS.bgSmallWorld, CONFIG.CANVAS_W, 0, groundY, cameraX, CONFIG.PARALLAX_SKY_FACTOR, false);
+  drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
+}
+
 // Parte un texto en líneas que quepan en maxWidth (con el ctx.font ya puesto).
 function wrapText(ctx, text, maxWidth) {
   const words = text.split(' ');
