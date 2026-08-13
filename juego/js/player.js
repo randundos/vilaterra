@@ -82,24 +82,38 @@ const Player = {
     const now = performance.now();
     const flicker = this.isInvulnerable(now) && Math.floor(t / 80) % 2 === 0;
     const jumping = !this.grounded;
+    // en el aire prima la pose de salto; en el suelo, si se está moviendo,
+    // se usa el ciclo real de 8 frames en vez del truco procedural de piernas
+    const usingWalkFrames = !jumping && this.isWalking && ASSETS.heroWalk.length > 0;
 
-    const img = jumping ? ASSETS.heroJump : ASSETS.hero;
+    let img;
+    if (jumping) {
+      img = ASSETS.heroJump;
+    } else if (usingWalkFrames) {
+      const idx = Math.floor(t / CONFIG.HERO_WALK_FRAME_MS) % ASSETS.heroWalk.length;
+      img = ASSETS.heroWalk[idx];
+    } else {
+      img = ASSETS.hero;
+    }
+
     const box = getBox(img, this.x - cameraX, groundY + this.jumpOffset, this.height);
 
     ctx.save();
     if (flicker) ctx.globalAlpha = 0.4;
     if (this.facing === 'right') {
       // el sprite mira de forma natural hacia la izquierda (igual la pose de
-      // salto), así que se voltea al ir hacia la derecha (y no al revés)
+      // salto y los frames de andar), así que se voltea al ir hacia la
+      // derecha (y no al revés)
       const centerX = box.x + box.w / 2;
       ctx.translate(centerX, 0);
       ctx.scale(-1, 1);
       ctx.translate(-centerX, 0);
     }
-    if (jumping) {
+    if (jumping || usingWalkFrames) {
       ctx.drawImage(img, box.x, box.y, box.w, box.h);
     } else {
-      drawWalking(ctx, img, box, this.hipFraction, t, this.isWalking, true);
+      // parado: pequeño balanceo de "respiración", sin animación de piernas
+      drawWalking(ctx, img, box, this.hipFraction, t, false, true);
     }
     ctx.restore();
 

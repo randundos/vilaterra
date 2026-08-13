@@ -1,11 +1,11 @@
 html, body {
   margin: 0;
   height: 100%;
+  width: 100%;
   background: #1a1a1a;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   font-family: 'Trebuchet MS', sans-serif;
   overflow: hidden;
 }
@@ -14,6 +14,7 @@ h1 {
   color: #eee;
   margin: 10px 0 2px;
   font-size: 20px;
+  flex: none;
 }
 
 p.hint {
@@ -21,17 +22,33 @@ p.hint {
   margin: 0 0 10px;
   font-size: 14px;
   text-align: center;
+  flex: none;
 }
 
+/* El wrap ocupa todo el espacio vertical que sobra bajo el título y las
+   instrucciones, y centra el canvas dentro. El canvas mantiene su
+   resolución interna (960x540) pero se escala en pantalla hasta llenar
+   ese espacio sin deformarse (max-width/max-height + intrinsic ratio). */
 #wrap {
   position: relative;
   border: 4px solid #000;
   border-radius: 6px;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 canvas {
   display: block;
   image-rendering: pixelated;
   background: #222;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
 }

@@ -42,6 +42,7 @@ const CONFIG = {
   HERO_MAX_HEALTH: 100,
   HERO_DAMAGE_PER_HIT: 20, // % de vida que quita un golpe de enemigo
   BOAR_BRACELET_REWARD: 3, // pulseras que suelta el jabalí al morir
+  HERO_WALK_FRAME_MS: 90,  // duración de cada frame del ciclo de andar real
 
   HUD: {
     HEALTH_BAR_X: 18,
