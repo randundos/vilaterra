@@ -34,6 +34,7 @@ function update() {
     Cutscene.update(performance.now());
     if (Cutscene.finished) {
       mode = 'gameplay';
+      Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY; // más pequeño que en la cinemática
       Camera.reset();
       Boar.init(performance.now(), groundY);
     }

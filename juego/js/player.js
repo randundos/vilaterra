@@ -4,7 +4,7 @@
 // draw() resta cameraX para saber dónde pintarlo en pantalla.
 const Player = {
   x: 200,
-  height: 155,
+  height: CONFIG.HERO_HEIGHT_CUTSCENE, // main.js lo reduce al pasar a jugabilidad
   hipFraction: 0.60,
   facing: 'right',   // 'right' | 'left'
   vy: 0,             // velocidad vertical (salto)
@@ -90,8 +90,9 @@ const Player = {
     if (jumping) {
       img = ASSETS.heroJump;
     } else if (usingWalkFrames) {
-      const idx = Math.floor(t / CONFIG.HERO_WALK_FRAME_MS) % ASSETS.heroWalk.length;
-      img = ASSETS.heroWalk[idx];
+      const seq = CONFIG.HERO_WALK_SEQUENCE;
+      const seqIdx = Math.floor(t / CONFIG.HERO_WALK_FRAME_MS) % seq.length;
+      img = ASSETS.heroWalk[seq[seqIdx]];
     } else {
       img = ASSETS.hero;
     }

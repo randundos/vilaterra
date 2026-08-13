@@ -3,10 +3,13 @@
 const CONFIG = {
   CANVAS_W: 960,
   CANVAS_H: 540,
-  GROUND_Y_RATIO: 0.80,   // altura del "suelo" como fracción del canvas
+  // Altura del "suelo" SOLO en la jugabilidad (fracción del canvas). La
+  // cinemática inicial usa su propia referencia (METEOR.LAND_Y_RATIO) para
+  // no descuadrar el fondo ya pintado del meteorito.
+  GROUND_Y_RATIO: 0.85,
 
   GRAVITY: 0.6,
-  JUMP_VELOCITY: -12,
+  JUMP_VELOCITY: -16,     // salto más alto que antes (era -12)
   SPEED: 3.2,
   DASH_BURST: 10,
   DASH_DECAY: 0.90,
@@ -24,7 +27,7 @@ const CONFIG = {
 
   BOAR: {
     SPAWN_X: 1150,
-    HEIGHT: 72,
+    HEIGHT: 54,
     SPEED: 1.6,
     PATROL_RANGE: 150,
     FRAME_MS: 110,       // duración de cada frame de animación
@@ -35,14 +38,23 @@ const CONFIG = {
     DEATH_FADE_MS: 700   // cuánto tarda en desvanecerse tras la animación de death
   },
 
-  STOMP_BOUNCE: -12,      // rebote del Hero al saltar encima del jabalí
+  STOMP_BOUNCE: -14,      // rebote del Hero al saltar encima del jabalí
   HERO_KNOCKBACK: 7,      // empuje horizontal al tocar al jabalí de lado
   HERO_INVULN_MS: 1000,   // invulnerabilidad tras recibir un golpe
+
+  // Altura de Hero: más grande en la cinemática (primer plano) y más
+  // pequeña en la jugabilidad (para que no se vea "encajado" en el nivel).
+  HERO_HEIGHT_CUTSCENE: 155,
+  HERO_HEIGHT_GAMEPLAY: 112,
 
   HERO_MAX_HEALTH: 100,
   HERO_DAMAGE_PER_HIT: 20, // % de vida que quita un golpe de enemigo
   BOAR_BRACELET_REWARD: 3, // pulseras que suelta el jabalí al morir
   HERO_WALK_FRAME_MS: 90,  // duración de cada frame del ciclo de andar real
+  // orden real de reproducción de los frames de hero_walk (no es 0..7 en
+  // orden numérico: el ciclo natural de zancada es este, con el frame 0
+  // repetido porque es la "pose de paso" que se cruza dos veces por ciclo)
+  HERO_WALK_SEQUENCE: [7, 6, 5, 4, 0, 3, 2, 1, 0],
 
   HUD: {
     HEALTH_BAR_X: 18,

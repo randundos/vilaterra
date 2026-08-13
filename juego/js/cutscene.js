@@ -124,7 +124,7 @@ const Cutscene = {
       }
     } else if (this.phase === 'impact-shake') {
       if (now >= this.shakeUntil) {
-        Blai.startAt(Meteor.x, CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO, now);
+        Blai.startAt(Meteor.x, CONFIG.CANVAS_H * CONFIG.METEOR.LAND_Y_RATIO, now);
         this.phase = 'blai-emerge';
       }
     } else if (this.phase === 'blai-emerge') {
@@ -204,7 +204,7 @@ const Cutscene = {
     ctx.drawImage(ASSETS.bg, 0, 0, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
     drawNightOverlay(ctx, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
 
-    Player.draw(ctx, t, CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO);
+    Player.draw(ctx, t, CONFIG.CANVAS_H * CONFIG.METEOR.LAND_Y_RATIO);
 
     if (this.craterDrawn) {
       ctx.save();

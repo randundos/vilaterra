@@ -4,7 +4,7 @@
 // (ver introLines) a través del sistema de Dialogue.
 const Mac = {
   x: CONFIG.MAC_X,
-  height: 195,
+  height: 140,
   hipFraction: 0.62,
   metHero: false, // para que la escena de encuentro solo salte una vez
 
