@@ -1,14 +1,14 @@
 // Gestión de teclado. Expone el estado de A/D como booleanos, y dispara
-// callbacks onJump / onAttack cuando corresponde. Espacio siempre llama a
+// callbacks onJump / onAction cuando corresponde. Espacio siempre llama a
 // onJump: es Player.jump() quien decide si es el primer salto o el doble
-// salto según si Hero ya está en el aire (ver player.js).
+// salto según si Hero ya está en el aire (ver player.js). onAction (tecla E)
+// avanza diálogos o ataca, según el contexto (ver el cableado en main.js).
 const Input = {
   keys: { a: false, d: false },
   onJump: null,
-  onAction: null,  // tecla E: avanzar diálogo / confirmar
+  onAction: null,  // tecla E: avanzar diálogo / confirmar, o atacar en jugabilidad (con espada si la tiene, si no un golpe)
   onMenuUp: null,  // flecha arriba: mover selector hacia arriba
   onMenuDown: null, // flecha abajo: mover selector hacia abajo
-  onAttack: null,  // clic izquierdo: ataque (con espada si la tiene, si no un golpe)
 
   init() {
     window.addEventListener('keydown', (e) => {
@@ -38,15 +38,6 @@ const Input = {
       const k = e.key.toLowerCase();
       if (k === 'a') this.keys.a = false;
       if (k === 'd') this.keys.d = false;
-    });
-
-    // clic izquierdo = atacar. También se evita el menú contextual del clic
-    // derecho encima del juego, por si acaso.
-    window.addEventListener('contextmenu', (e) => e.preventDefault());
-    window.addEventListener('mousedown', (e) => {
-      if (e.button === 0) {
-        if (this.onAttack) this.onAttack();
-      }
     });
   }
 };

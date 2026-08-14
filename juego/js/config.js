@@ -108,24 +108,36 @@ const CONFIG = {
     GRIP_FRACTION: { x: 0.49, y: 1.0 } // punto de agarre dentro de la propia imagen de la espada
   },
 
-  // Ataque (clic izquierdo): un único frame frontal (reutiliza
-  // la pose de pie ya armada) con una estela blanca que baja de arriba a
-  // abajo para dar sensación de movimiento sin necesitar más frames.
+  // Ataque (clic izquierdo). Con espada: se reproduce una de dos animaciones
+  // reales de 5 frames (tajo vertical / tajo horizontal, elegida al azar
+  // cada vez que se ataca), con el propio brillo verde ya dibujado en el
+  // sprite -> ya no hace falta la estela blanca superpuesta. Sin espada: se
+  // mantiene la pose estática de siempre con la estela blanca (no tenemos
+  // frames de golpe a mano desnuda).
   ATTACK: {
     DURATION_MS: 320,   // cuánto dura la pose de ataque antes de volver a lo normal
     COOLDOWN_MS: 380,   // tiempo mínimo entre ataques (algo más que DURATION_MS)
-    SWEEP_FRACTION: 0.55, // fracción de DURATION_MS en la que la estela baja del todo; el resto es el desvanecido
-    MELEE_REACH: 46     // cuánto se extiende el golpe más allá de la caja del Hero, hacia donde mira
+    SWEEP_FRACTION: 0.55, // (solo ataque sin espada) fracción de DURATION_MS en la que la estela baja del todo
+    MELEE_REACH: 46,    // cuánto se extiende el golpe más allá de la caja del Hero, hacia donde mira
+    SWORD_FRAME_COUNT: 5, // frames reales de cada animación de espada (vertical/horizontal)
+    UNARMED_FRAME_COUNT: 4 // frames reales del puñetazo (sin espada)
   },
 
-  // Hormiga con rifle: primer enemigo del tramo de hierba (nivel 2). Se queda
-  // quieta y dispara balas a intervalos regulares; el Hero tiene que
-  // esquivarlas saltando hasta acercarse lo suficiente para rematarla con la
-  // espada (clic izquierdo).
+  // Hormigas con rifle: enemigos a distancia del tramo de hierba (nivel 2). Se
+  // quedan quietas y disparan balas a intervalos regulares; el Hero tiene que
+  // esquivarlas saltando hasta acercarse lo suficiente para rematarlas con la
+  // espada (clic izquierdo) o saltándoles encima. SPAWNS tiene una posición
+  // por cada hormiga del nivel (la 2a se sustituyó por el gusano, ver WORM);
+  // la de índice ELITE_INDEX es una versión "veterana" (dispara más rápido,
+  // teñida de rojo) para variar la dificultad hacia el final del tramo, sin
+  // necesitar arte nuevo.
   ANT: {
     HEIGHT: 102,             // escalada junto con HERO_HEIGHT_SMALL, para mantener su proporción respecto a Hero
-    SPAWN_X: 1150,           // más allá del tallo/espada, para que ya vaya armado al llegar
-    FIRE_INTERVAL_MS: 1500,  // una bala cada segundo y medio
+    SPAWNS: [1150, 3080], // más allá del tallo/espada, para que ya vaya armado al llegar
+    ELITE_INDEX: 1,
+    ELITE_FIRE_FACTOR: 0.55,   // la veterana dispara ~el doble de rápido
+    ELITE_TINT: 'rgba(200, 40, 40, 0.5)',
+    FIRE_INTERVAL_MS: 1500,  // una bala cada segundo y medio (normal)
     BULLET_SPEED: 6,
     BULLET_RADIUS: 6,
     BULLET_LIFETIME_MS: 3000,
@@ -137,6 +149,26 @@ const CONFIG = {
     TIP_Y_FRACTION: 0.586,
     HIT_FADE_MS: 250,
     BRACELET_REWARD: 5 // pulseras que suelta al morir (pisotón o espada)
+  },
+
+  // Gusano: segundo enemigo del tramo de hierba (sustituye a la 2a hormiga).
+  // No dispara: patrulla de lado a lado y de vez en cuando da un saltito
+  // (arco simple), y hace daño por contacto igual que el jabalí. Se mata
+  // saltándole encima o con la espada, igual que el resto. Solo hay una
+  // imagen por estado (sin ciclo de animación propio): reposo, movimiento,
+  // salto y muerte.
+  WORM: {
+    HEIGHT: 46,
+    SPAWN_X: 2500,        // donde antes iba la 2a hormiga
+    SPEED: 1.4,
+    PATROL_RANGE: 140,
+    REST_MS: 700,         // pausa al arrancar y en cada extremo de la patrulla
+    HOP_EVERY_MS: 1600,   // cada cuánto da un saltito mientras patrulla
+    HOP_MS: 420,          // duración del saltito
+    HOP_HEIGHT: 22,
+    DEATH_HOLD_MS: 200,   // se queda visible con la pose de muerte antes de desvanecerse
+    DEATH_FADE_MS: 500,
+    BRACELET_REWARD: 4
   },
 
   HUD: {
@@ -161,14 +193,35 @@ const CONFIG = {
 
   // --- Tramo "Hero pequeño" en la hierba, tras la escena de la manguera ---
   SMALL_WORLD: {
-    LEVEL_WIDTH: 1600,
+    LEVEL_WIDTH: 3300,
     GROUND_Y_RATIO: 0.85,
     GRASS_BLADE_X: 700,      // posición del tallo que hay que golpear con el ataque
     GRASS_BLADE_HEIGHT: 260, // bien alta para que destaque, como una hierba gigante
     HIT_FADE_MS: 250,        // cuánto tarda el tallo en desvanecerse tras el golpe
     SWORD_FALL_MS: 300,      // cuánto tarda la espada en caer al suelo
     SWORD_COLLECT_RADIUS: 24,
-    SWORD_PICKUP_HEIGHT: 88  // tamaño en pantalla de la espada tirada en el suelo (escalado junto con Hero)
+    SWORD_PICKUP_HEIGHT: 88, // tamaño en pantalla de la espada tirada en el suelo (escalado junto con Hero)
+
+    // Huecos sin suelo (igual que PIT en el nivel 1, pero varios tramos).
+    // El primero es la gran travesía: solo se puede cruzar saltando de
+    // plataforma en plataforma (ver PLATFORMS); el segundo es un agujero
+    // simple, como el del nivel 1, para el que el salto normal llega de sobra.
+    PITS: [
+      { x: 1400, width: 920 },
+      { x: 2750, width: 150 }
+    ],
+
+    // Plataformas flotantes: "top" es cuánto se elevan sobre el suelo (en
+    // negativo, como jumpOffset). La primera es una plataforma "bonus" con
+    // pulseras encima y suelo normal debajo (solo para quien se anime a
+    // subir); las otras tres son las que permiten cruzar la gran travesía
+    // (sin suelo debajo: si no se llega, se cae y hay que reiniciar).
+    PLATFORMS: [
+      { x: 1230, width: 120, top: -90, bonus: true },
+      { x: 1550, width: 140, top: -70 },
+      { x: 1800, width: 130, top: -110 },
+      { x: 2040, width: 140, top: -60 }
+    ]
   },
 
   // --- Cinemática inicial (caída del meteorito) ---

@@ -2,7 +2,7 @@
 // ASSET_V se añade como query string a cada imagen para evitar que el
 // navegador sirva una versión vieja cacheada de un archivo que hemos
 // sustituido en disco (mismo nombre de archivo, contenido nuevo).
-const ASSET_V = 4;
+const ASSET_V = 6;
 function withV(path) {
   return `${path}?v=${ASSET_V}`;
 }
@@ -17,9 +17,13 @@ const ASSETS = {
   heroWalkSword: [],      // 6 frames reales del ciclo de andar, con la espada ya equipada
   heroJumpSword: [],      // 4 frames reales del salto, con la espada ya equipada
   heroSwordIdle: new Image(), // Hero de pie con la espada (reutiliza el frame 0 del ciclo de andar armado, para que sea la MISMA espada que al andar)
+  heroAttackVertical: [],   // 5 frames reales del ataque "tajo vertical" (con espada)
+  heroAttackHorizontal: [], // 5 frames reales del ataque "tajo horizontal" (con espada)
+  heroAttackPunch: [],      // 4 frames reales del puñetazo (sin espada)
   sword: new Image(),     // espada suelta, para el pickup en el suelo del tramo de hierba
   bgSmallWorld: new Image(), // fondo del tramo "Hero pequeño" entre la hierba
-  ant: new Image(),       // hormiga con rifle, primer enemigo del tramo de hierba
+  ant: new Image(),       // hormiga con rifle, primer y tercer enemigo del tramo de hierba
+  worm: { rest: new Image(), move: new Image(), jump: new Image(), death: new Image() }, // gusano, 2o enemigo del tramo de hierba
   blai: new Image(),      // solo aparece en la cinemática inicial
   blaiShock: new Image(), // pose de Blai preocupado (manos a la cabeza) para el diálogo
   blaiPoint: new Image(), // pose de Blai señalando hacia Hero al pedirle ayuda
@@ -41,6 +45,10 @@ ASSETS.heroSwordIdle.src = withV('../Visuals/hero_walk_sword/walk_0.png');
 ASSETS.sword.src = withV('../Visuals/Espada_sinfondo.png');
 ASSETS.bgSmallWorld.src = withV('../Visuals/fondo_hierba.png');
 ASSETS.ant.src = withV('../Visuals/Hormiga_sinfondo.png');
+ASSETS.worm.rest.src = withV('../Visuals/worm/rest.png');
+ASSETS.worm.move.src = withV('../Visuals/worm/move.png');
+ASSETS.worm.jump.src = withV('../Visuals/worm/jump.png');
+ASSETS.worm.death.src = withV('../Visuals/worm/death.png');
 
 const HERO_WALK_FRAME_COUNT = 6;
 const HERO_JUMP_FRAME_COUNT = 4;
@@ -55,6 +63,9 @@ loadFrameSet(ASSETS.heroWalk, 'hero_walk', 'walk', HERO_WALK_FRAME_COUNT);
 loadFrameSet(ASSETS.heroJump, 'hero_jump', 'jump', HERO_JUMP_FRAME_COUNT);
 loadFrameSet(ASSETS.heroWalkSword, 'hero_walk_sword', 'walk', HERO_WALK_FRAME_COUNT);
 loadFrameSet(ASSETS.heroJumpSword, 'hero_jump_sword', 'jump', HERO_JUMP_FRAME_COUNT);
+loadFrameSet(ASSETS.heroAttackVertical, 'hero_attack_vertical', 'slash', CONFIG.ATTACK.SWORD_FRAME_COUNT);
+loadFrameSet(ASSETS.heroAttackHorizontal, 'hero_attack_horizontal', 'slash', CONFIG.ATTACK.SWORD_FRAME_COUNT);
+loadFrameSet(ASSETS.heroAttackPunch, 'hero_attack_punch', 'punch', CONFIG.ATTACK.UNARMED_FRAME_COUNT);
 ASSETS.blai.src = withV('../Visuals/Blai_sinfondo.png');
 ASSETS.blaiShock.src = withV('../Visuals/Blai_preocupat_sinfondo.png');
 ASSETS.blaiPoint.src = withV('../Visuals/Blai_preguntant_sinfondo.png');

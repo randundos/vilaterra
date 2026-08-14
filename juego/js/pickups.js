@@ -21,15 +21,20 @@ const Pickups = {
     }
   },
 
-  update(now, player, cameraX, canvasW, canvasH) {
+  update(now, player, groundY, cameraX, canvasW, canvasH) {
     const C = CONFIG.PICKUP;
+
+    // la Y real del Hero (groundY + jumpOffset) hace falta para las pulseras
+    // "de regalo" sobre una plataforma: si solo mirásemos dx, se recogerían
+    // igual pasando por debajo, sin necesidad de subir a por ellas.
+    const playerY = groundY + player.jumpOffset;
 
     this.items.forEach((item) => {
       if (item.state !== 'floating') return;
       const bobY = Math.sin(now * C.FLOAT_SPEED + item.phase) * C.FLOAT_AMPLITUDE;
       const dx = player.x - item.x;
-      const dy = 0; // la altura de flotación ya está pensada al nivel de paso del Hero
-      if (Math.abs(dx) < C.COLLECT_RADIUS) {
+      const dy = playerY - (item.baseY + bobY);
+      if (Math.abs(dx) < C.COLLECT_RADIUS && Math.abs(dy) < C.COLLECT_RADIUS) {
         item.state = 'flying';
         item.flyStart = now;
         item.startScreenX = item.x - cameraX;

@@ -22,13 +22,17 @@ let deathPhase = null;
 let deathStart = 0;
 
 Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && !deathPhase) Player.jump(); };
-Input.onAttack = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && !deathPhase) Player.attack(performance.now()); };
+// tecla E: en la cinemática avanza el diálogo/la escena; en jugabilidad, si
+// hay un diálogo en pantalla lo avanza (prioridad), y si no, ataca (antes
+// era el clic izquierdo).
 Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
     Cutscene.handleAction(now);
   } else if ((mode === 'gameplay' || mode === 'small') && Dialogue.active) {
     Dialogue.advance(now);
+  } else if ((mode === 'gameplay' || mode === 'small') && !macSprayPhase && !deathPhase) {
+    Player.attack(now);
   }
 };
 Input.onMenuUp = () => { if (mode === 'cutscene') Cutscene.handleMenuUp(); };
@@ -86,12 +90,20 @@ function startSmallWorld(now) {
   Player.grounded = true;
   Player.jumpsUsed = 0;
   Player.isWalking = false;
-  Player.pits = []; // no hay agujeros en este tramo
+  Player.pits = CONFIG.SMALL_WORLD.PITS.map((p) => ({ ...p }));
+  Player.platforms = CONFIG.SMALL_WORLD.PLATFORMS.map((p) => ({ ...p }));
 
   Camera.reset();
   GrassBlade.reset();
   SwordPickup.active = false;
-  Ant.reset(now, smallGroundY);
+  Ants.reset(now, smallGroundY);
+  Worm.init(now, smallGroundY);
+  Platforms.reset();
+  Pickups.items = []; // limpia pulseras de una posible partida anterior
+  // pulseras "de regalo" encima de las plataformas bonus, ya colocadas desde el inicio del tramo
+  Platforms.list.filter((p) => p.bonus).forEach((p) => {
+    Pickups.spawnBraceletsAt(p.x + p.width / 2, smallGroundY + p.top - CONFIG.PICKUP.GROUND_OFFSET, 3);
+  });
 }
 
 // Reinicia el nivel 1 desde el principio: lo dispara la caída por el
@@ -113,6 +125,7 @@ function restartLevel1(now) {
   Player.invulnerableUntil = 0;
   Player.levelWidth = CONFIG.LEVEL_WIDTH;
   Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
+  Player.platforms = []; // el nivel 1 no tiene plataformas
 
   Pickups.items = [];
   Camera.reset();
@@ -171,6 +184,7 @@ function update() {
       mode = 'gameplay';
       Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY; // más pequeño que en la cinemática
       Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
+      Player.platforms = [];
       Camera.reset();
       Boar.init(performance.now(), groundY);
     }
@@ -191,15 +205,19 @@ function update() {
 
   if (mode === 'small') {
     Player.update();
+    checkPitFall(now); // caer por la gran travesía (o el segundo agujero) = "Has Fallat" y se reinicia el tramo
     checkGrassBladeHit(now, Player, smallGroundY); // primero el golpe, o nunca pasaría de "sólido"
     blockGrassBlade(Player);
     checkAntSwordHit(now, Player, smallGroundY);
     checkAntStomp(now, Player, smallGroundY);
-    Ant.update(now, Player, smallGroundY, Camera.x);
+    Ants.update(now, Player, smallGroundY, Camera.x);
+    checkWormSwordHit(now, Player, smallGroundY); // primero el golpe, o el contacto lateral haría daño igualmente
+    checkWormCollision(now, Player, smallGroundY);
+    Worm.update(now);
     Camera.update(Player.x, CONFIG.SMALL_WORLD.LEVEL_WIDTH);
     GrassBlade.update(now);
     SwordPickup.update(now, Player, smallGroundY);
-    Pickups.update(now, Player, Camera.x, canvas.width, canvas.height); // las pulseras que suelte la hormiga
+    Pickups.update(now, Player, smallGroundY, Camera.x, canvas.width, canvas.height); // pulseras de la hormiga + las de regalo en las plataformas
     if (Player.health <= 0) startDeath(now);
     return;
   }
@@ -216,7 +234,7 @@ function update() {
   Boar.update(now);
   checkBoarSwordHit(now, Player, groundY); // primero el golpe, o el contacto lateral haría daño igualmente
   checkBoarCollision(now, groundY);
-  Pickups.update(now, Player, Camera.x, canvas.width, canvas.height);
+  Pickups.update(now, Player, groundY, Camera.x, canvas.width, canvas.height);
 
   if (Player.health <= 0) {
     startDeath(now);
@@ -251,9 +269,11 @@ function draw(t) {
 
   if (mode === 'small') {
     drawSmallWorldBackground(ctx, Camera.x);
+    Platforms.draw(ctx, smallGroundY, Camera.x);
     GrassBlade.draw(ctx, now, smallGroundY, Camera.x);
     SwordPickup.draw(ctx, now, smallGroundY, Camera.x);
-    Ant.draw(ctx, now, Camera.x);
+    Ants.draw(ctx, now, Camera.x);
+    Worm.draw(ctx, now, Camera.x);
     Player.draw(ctx, t, smallGroundY, Camera.x);
     Pickups.draw(ctx, now, Camera.x); // pulseras sueltas por la hormiga, volando al contador
     Dialogue.draw(ctx, getSpeakerBox);
@@ -306,6 +326,7 @@ if (CONFIG.DEBUG) {
       Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY;
       Player.levelWidth = CONFIG.LEVEL_WIDTH;
       Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
+      Player.platforms = [];
       Player.x = CONFIG.PIT.X - 80;
       Player.vy = 0; Player.jumpOffset = 0; Player.grounded = true; Player.jumpsUsed = 0; Player.dashVX = 0;
       Player.health = CONFIG.HERO_MAX_HEALTH;
@@ -323,17 +344,18 @@ if (CONFIG.DEBUG) {
       Player.height = CONFIG.HERO_HEIGHT_GAMEPLAY;
       Player.levelWidth = CONFIG.LEVEL_WIDTH;
       Player.pits = [{ x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }];
+      Player.platforms = [];
       Player.x = CONFIG.MAC_X - 200;
       Player.vy = 0; Player.jumpOffset = 0; Player.grounded = true; Player.jumpsUsed = 0; Player.dashVX = 0;
       Player.health = CONFIG.HERO_MAX_HEALTH;
       Camera.reset();
     } else if (e.key === '3') {
-      // tramo de hierba, con la espada ya equipada, cerca de la hormiga
+      // tramo de hierba, con la espada ya equipada, cerca de la primera hormiga
       deathPhase = null;
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
-      Player.x = CONFIG.ANT.SPAWN_X - 150;
+      Player.x = CONFIG.ANT.SPAWNS[0] - 150;
     } else if (e.key === '4') {
       // reinicia el nivel 1 del todo, desde el principio
       deathPhase = null;
@@ -344,10 +366,31 @@ if (CONFIG.DEBUG) {
       // perder toda la vida jugando; al acabar reinicia el nivel actual
       Player.health = 0;
       startDeath(now);
+    } else if (e.key === '6') {
+      // justo antes de la gran travesía de plataformas, con espada
+      deathPhase = null;
+      startSmallWorld(now);
+      GrassBlade.state = 'gone';
+      Player.hasSword = true;
+      Player.x = CONFIG.SMALL_WORLD.PITS[0].x - 60;
+    } else if (e.key === '7') {
+      // justo antes de la hormiga veterana (final del tramo), con espada
+      deathPhase = null;
+      startSmallWorld(now);
+      GrassBlade.state = 'gone';
+      Player.hasSword = true;
+      Player.x = CONFIG.ANT.SPAWNS[CONFIG.ANT.ELITE_INDEX] - 150;
+    } else if (e.key === '8') {
+      // justo antes del gusano, con espada
+      deathPhase = null;
+      startSmallWorld(now);
+      GrassBlade.state = 'gone';
+      Player.hasSword = true;
+      Player.x = CONFIG.WORM.SPAWN_X - 150;
     }
   });
 
-  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte');
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes de la hormiga veterana · 8 = antes del gusano');
 }
 
 loadAssets(() => {

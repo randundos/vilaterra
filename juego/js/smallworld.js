@@ -85,6 +85,60 @@ const GrassBlade = {
   }
 };
 
+// Plataformas flotantes del tramo de hierba: unas cuantas sirven para cruzar
+// la gran travesía (CONFIG.SMALL_WORLD.PITS[0], sin ellas no hay forma de
+// llegar al otro lado) y otra es una plataforma "bonus" con pulseras encima,
+// con suelo normal debajo, solo para quien se anime a subir. La física real
+// (aterrizar encima, caerse por los lados) la resuelve Player.update() a
+// partir de Player.platforms (ver player.js); esto solo dibuja. De momento,
+// como con el tallo de hierba, van con formas simples (placeholder).
+const Platforms = {
+  list: [],
+
+  reset() {
+    this.list = CONFIG.SMALL_WORLD.PLATFORMS.map((p) => ({ ...p }));
+  },
+
+  draw(ctx, groundY, cameraX) {
+    this.list.forEach((p) => drawPlatform(ctx, p, groundY, cameraX));
+  }
+};
+
+function drawPlatform(ctx, p, groundY, cameraX) {
+  const screenX = p.x - cameraX;
+  if (screenX + p.width < -20 || screenX > CONFIG.CANVAS_W + 20) return;
+
+  const topY = groundY + p.top;
+  const thickness = 22;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 4;
+
+  const grad = ctx.createLinearGradient(0, topY, 0, topY + thickness);
+  grad.addColorStop(0, '#8a6a45');
+  grad.addColorStop(1, '#5c4529');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(screenX, topY, p.width, thickness, 6);
+  ctx.fill();
+
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  // borde de hierba encima, para que encaje con el estilo del tramo
+  ctx.fillStyle = '#5fae32';
+  ctx.fillRect(screenX, topY - 4, p.width, 8);
+  ctx.fillStyle = '#8de35a';
+  for (let i = 4; i < p.width - 4; i += 10) {
+    const bladeH = 6 + (i % 3) * 3;
+    ctx.fillRect(screenX + i, topY - 4 - bladeH + 4, 3, bladeH);
+  }
+  ctx.restore();
+}
+
 const SwordPickup = {
   active: false,
   collected: false,

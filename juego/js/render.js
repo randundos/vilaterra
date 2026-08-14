@@ -138,38 +138,61 @@ function drawLevelBackground(ctx, cameraX) {
   const groundH = CONFIG.CANVAS_H - groundY;
   drawParallaxLayer(ctx, ASSETS.bgSky, CONFIG.CANVAS_W, 0, groundY, cameraX, CONFIG.PARALLAX_SKY_FACTOR);
   drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
-  drawGroundPit(ctx, cameraX, groundY, groundH);
+  drawPit(ctx, { x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }, cameraX, groundY, groundH, ASSETS.bgSky, CONFIG.PARALLAX_SKY_FACTOR);
 }
 
-// Agujero en el suelo (CONFIG.PIT): un hueco oscuro con degradado (sensación
-// de profundidad) y un borde superior irregular para que parezca tierra
-// rota, en vez de un simple rectángulo negro. El desnivel es determinista
-// (basado en el índice del "diente") para que no tiemble entre frames.
-function drawGroundPit(ctx, cameraX, groundY, groundH) {
-  const P = CONFIG.PIT;
-  const screenX = P.X - cameraX;
-  if (screenX + P.WIDTH < -20 || screenX > CONFIG.CANVAS_W + 20) return;
+// Hueco sin suelo: en vez de un agujero negro plano, se recorta una silueta
+// irregular (como tierra rota) y DENTRO de ese recorte se vuelve a pintar la
+// propia capa de fondo (cielo/hierba), estirada hacia abajo -> da la
+// sensación de que ahí simplemente se acaba la tierra y se ve a través,
+// hacia el fondo, en vez de caer a un vacío negro. Un borde y una sombra muy
+// sutiles marcan el canto roto para que se note dónde deja de haber suelo.
+// El desnivel de los dientes es determinista (basado en pit.x) para que no
+// tiemble entre frames ni se repita igual en cada agujero. Se usa tanto para
+// el del nivel 1 como para los del tramo de hierba (drawSmallWorldBackground).
+function drawPit(ctx, pit, cameraX, groundY, groundH, bgImage, bgFactor) {
+  const screenX = pit.x - cameraX;
+  if (screenX + pit.width < -20 || screenX > CONFIG.CANVAS_W + 20) return;
+
+  const teeth = Math.max(3, Math.round(pit.width / 90));
+  const toothW = pit.width / teeth;
+  const jagPoints = [];
+  for (let i = 0; i <= teeth; i++) {
+    const tx = screenX + i * toothW;
+    const jag = (i % 2 === 0 ? 1 : -1) * (4 + ((pit.x + i * 37) % 6));
+    jagPoints.push({ x: tx, y: groundY + jag });
+  }
 
   ctx.save();
-  const grad = ctx.createLinearGradient(0, groundY, 0, groundY + groundH);
-  grad.addColorStop(0, '#141210');
-  grad.addColorStop(1, '#000000');
-  ctx.fillStyle = grad;
-
-  const teeth = 7;
-  const toothW = P.WIDTH / teeth;
   ctx.beginPath();
   ctx.moveTo(screenX, groundY + groundH);
   ctx.lineTo(screenX, groundY);
-  for (let i = 0; i <= teeth; i++) {
-    const tx = screenX + i * toothW;
-    const jag = (i % 2 === 0 ? 1 : -1) * (4 + (i * 37) % 6);
-    ctx.lineTo(tx, groundY + jag);
-  }
-  ctx.lineTo(screenX + P.WIDTH, groundY);
-  ctx.lineTo(screenX + P.WIDTH, groundY + groundH);
+  jagPoints.forEach((p) => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(screenX + pit.width, groundY);
+  ctx.lineTo(screenX + pit.width, groundY + groundH);
   ctx.closePath();
-  ctx.fill();
+  ctx.clip();
+
+  // el fondo, estirado para cubrir también la franja que normalmente ocupa
+  // el suelo -> solo se ve dentro del recorte de arriba
+  drawParallaxLayer(ctx, bgImage, CONFIG.CANVAS_W, 0, groundY + groundH, cameraX, bgFactor, false);
+
+  // sombra muy suave pegada al borde roto, solo para dar algo de
+  // profundidad (nada de negro sólido)
+  const edgeGrad = ctx.createLinearGradient(0, groundY - 6, 0, groundY + 30);
+  edgeGrad.addColorStop(0, 'rgba(30, 22, 14, 0.5)');
+  edgeGrad.addColorStop(1, 'rgba(30, 22, 14, 0)');
+  ctx.fillStyle = edgeGrad;
+  ctx.fillRect(screenX, groundY - 6, pit.width, 36);
+  ctx.restore();
+
+  // silueta del canto de tierra roto, para que se note el borde contra el fondo
+  ctx.save();
+  ctx.strokeStyle = 'rgba(60, 45, 28, 0.9)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  jagPoints.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -183,6 +206,10 @@ function drawSmallWorldBackground(ctx, cameraX) {
   const groundH = CONFIG.CANVAS_H - groundY;
   drawParallaxLayer(ctx, ASSETS.bgSmallWorld, CONFIG.CANVAS_W, 0, groundY, cameraX, CONFIG.PARALLAX_SKY_FACTOR, false);
   drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
+  // los tramos sin suelo (CONFIG.SMALL_WORLD.PITS) se "recortan" del suelo
+  // tileado de arriba: así se ve claramente que ahí no se puede pisar y que
+  // hay que cruzar saltando por las plataformas (ver Platforms en main.js)
+  CONFIG.SMALL_WORLD.PITS.forEach((pit) => drawPit(ctx, pit, cameraX, groundY, groundH, ASSETS.bgSmallWorld, CONFIG.PARALLAX_SKY_FACTOR));
 }
 
 // Parte un texto en líneas que quepan en maxWidth (con el ctx.font ya puesto).

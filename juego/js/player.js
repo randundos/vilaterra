@@ -21,9 +21,11 @@ const Player = {
   visible: true,     // deja de dibujarse cuando termina de encogerse del todo
   levelWidth: CONFIG.LEVEL_WIDTH, // main.js lo cambia según la zona activa
   pits: [],          // [{x, width}] tramos de MUNDO sin suelo; main.js lo rellena según la zona activa
+  platforms: [],      // [{x, width, top}] plataformas flotantes (top = jumpOffset de su superficie, negativo); main.js lo rellena según la zona activa
   hasSword: false,   // true tras recoger la espada en el tramo de hierba
   attacking: false,  // true durante la pose de ataque (clic izquierdo)
   attackStart: -Infinity,
+  attackVariant: 'vertical', // 'vertical' | 'horizontal': cuál de las dos animaciones de espada toca esta vez (se sortea en attack())
 
   // Salto doble real: en el suelo es el salto normal; si ya está en el aire
   // y todavía le queda un salto (jumpsUsed < MAX_JUMPS), esta MISMA llamada
@@ -59,11 +61,14 @@ const Player = {
   // Lo dispara main.js con el clic izquierdo: con espada es un tajo, sin
   // ella un golpe/puñetazo (sirve igual para romper el tallo de hierba).
   // Un cooldown evita reiniciar la pose a media animación si llegan varios
-  // clics seguidos.
+  // clics seguidos. Con espada, cada ataque sortea al azar cuál de las dos
+  // animaciones reales toca (tajo vertical u horizontal), para que no se
+  // repita siempre el mismo golpe.
   attack(now) {
     if (now - this.attackStart < CONFIG.ATTACK.COOLDOWN_MS) return;
     this.attacking = true;
     this.attackStart = now;
+    if (this.hasSword) this.attackVariant = Math.random() < 0.5 ? 'vertical' : 'horizontal';
   },
 
   // Lo dispara main.js cuando Mac Arrons empieza a rociarlo con la manguera:
@@ -99,14 +104,32 @@ const Player = {
     const maxX = this.levelWidth - CONFIG.MARGIN_X;
     this.x = Math.max(CONFIG.MARGIN_X, Math.min(maxX, this.x));
 
-    // --- salto (gravedad simple) ---
+    // --- salto (gravedad simple, con soporte de agujeros y plataformas) ---
+    // La "superficie" bajo los pies puede ser el suelo normal (0), una
+    // plataforma flotante (this.platforms, un valor negativo = por encima
+    // del suelo) o directamente nada si está sobre un agujero (this.pits).
+    // Para aterrizar hace falta haber CRUZADO esa superficie cayendo este
+    // mismo frame (prevOffset por encima, jumpOffset ya por debajo/igual);
+    // así un salto no "aterriza" de golpe al pasar de refilón por la altura
+    // de una plataforma más baja mientras todavía se está subiendo.
+    const prevOffset = this.jumpOffset;
+
+    // una plataforma solo "cuenta" como superficie si ya se estaba a su
+    // altura o más arriba (cayendo sobre ella desde arriba); si se está más
+    // abajo -p.ej. andando por el suelo normal justo por debajo de una
+    // plataforma "bonus"- no debe robarle el sitio al suelo real, o se
+    // caería nada más entrar en su rango horizontal sin haber saltado.
+    const platform = this.platforms.find((p) =>
+      this.x > p.x && this.x < p.x + p.width && prevOffset <= p.top
+    );
+    const overPit = !platform && this.pits.some((p) => this.x > p.x && this.x < p.x + p.width);
+    const surface = platform ? platform.top : (overPit ? null : 0);
+
     this.vy += CONFIG.GRAVITY;
     this.jumpOffset += this.vy;
-    // si está justo encima de un agujero, no hay suelo en el que aterrizar:
-    // se deja caer en vez de clavarse a jumpOffset 0 (ver checkPitFall en main.js)
-    const overPit = this.pits.some((p) => this.x > p.x && this.x < p.x + p.width);
-    if (this.jumpOffset >= 0 && !overPit) {
-      this.jumpOffset = 0;
+
+    if (surface !== null && prevOffset <= surface && this.jumpOffset >= surface) {
+      this.jumpOffset = surface;
       this.vy = 0;
       this.grounded = true;
       this.jumpsUsed = 0; // vuelve a tener los dos saltos disponibles
@@ -163,11 +186,22 @@ const Player = {
     // se usa el ciclo real de andar
     const usingWalkFrames = !attacking && !jumping && this.isWalking;
 
+    // con espada, el ataque reproduce una de las dos animaciones reales de 5
+    // frames (sorteada en attack()); sin espada, el puñetazo real de 4
+    // frames. Ambas ya llevan su propio movimiento dibujado, así que no
+    // hace falta ninguna estela superpuesta (ver más abajo, ya no se llama).
     let img;
     if (attacking) {
-      // pose frontal ya armada; la sensación de movimiento la da la estela
-      // blanca que se dibuja encima (ver drawAttackTrail)
-      img = this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero;
+      if (this.hasSword) {
+        const set = this.attackVariant === 'horizontal' ? ASSETS.heroAttackHorizontal : ASSETS.heroAttackVertical;
+        const frameMs = CONFIG.ATTACK.DURATION_MS / CONFIG.ATTACK.SWORD_FRAME_COUNT;
+        const idx = Math.min(CONFIG.ATTACK.SWORD_FRAME_COUNT - 1, Math.floor((now - this.attackStart) / frameMs));
+        img = set[idx] || set[0] || ASSETS.heroSwordIdle;
+      } else {
+        const frameMs = CONFIG.ATTACK.DURATION_MS / CONFIG.ATTACK.UNARMED_FRAME_COUNT;
+        const idx = Math.min(CONFIG.ATTACK.UNARMED_FRAME_COUNT - 1, Math.floor((now - this.attackStart) / frameMs));
+        img = ASSETS.heroAttackPunch[idx] || ASSETS.heroAttackPunch[0] || ASSETS.hero;
+      }
     } else if (jumping) {
       const jumpSet = this.hasSword ? ASSETS.heroJumpSword : ASSETS.heroJump;
       const idx = pickJumpFrame(this.vy);
@@ -187,11 +221,15 @@ const Player = {
 
     const box = getBox(img, this.x - cameraX, groundY + this.jumpOffset, this.height);
 
-    // Los frames nuevos de salto y de andar (hero_jump*/hero_walk*) miran de
-    // forma natural hacia la DERECHA -> se voltean al ir hacia la izquierda.
-    // El resto de poses (de pie, ataque) son las de siempre y miran de
-    // forma natural hacia la IZQUIERDA -> se voltean al ir hacia la derecha.
-    const naturallyFacesRight = jumping || usingWalkFrames;
+    // Los frames nuevos de salto, andar y ataque (con espada o a puñetazos)
+    // miran de forma natural hacia la DERECHA, igual que heroSwordIdle
+    // (reutiliza el frame 0 del andar armado) -> se voltean al ir hacia la
+    // izquierda. Solo la pose de pie SIN espada (ASSETS.hero, el retrato de
+    // siempre) mira de forma natural hacia la IZQUIERDA -> se voltea al ir
+    // hacia la derecha. Antes esto no distinguía la pose de pie CON espada
+    // (que en realidad ya mira a la derecha) y por eso, parado con espada,
+    // Hero se quedaba mirando a la izquierda aunque viniera de la derecha.
+    const naturallyFacesRight = jumping || usingWalkFrames || attacking || this.hasSword;
     const shouldFlip = naturallyFacesRight ? this.facing === 'left' : this.facing === 'right';
 
     ctx.save();
@@ -210,13 +248,10 @@ const Player = {
     }
     ctx.restore();
 
-    // la estela se dibuja FUERA del ctx.save()/restore() del volteo: así se
-    // posiciona directamente en coordenadas de pantalla según this.facing,
-    // en vez de heredar el flip (que la habría dejado apuntando hacia el
-    // lado equivocado la mitad de las veces)
-    if (attacking) {
-      drawAttackTrail(ctx, box, now - this.attackStart, this.facing);
-    }
+    // la estela blanca ya no hace falta: tanto el golpe con espada como el
+    // puñetazo tienen ahora sus propios frames reales con el movimiento ya
+    // dibujado (drawAttackTrail se deja definida más abajo por si hiciera
+    // falta en el futuro, pero ya no se llama).
 
     this._box = box; // se guarda para anclar diálogos por encima de su cabeza
     return box;
