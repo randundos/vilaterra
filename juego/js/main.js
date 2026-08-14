@@ -21,14 +21,17 @@ let macSprayNextParticle = 0;
 let deathPhase = null;
 let deathStart = 0;
 
-Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && !deathPhase) Player.jump(); };
+Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && !deathPhase && !ItemPopup.active) Player.jump(); };
 // tecla E: en la cinemática avanza el diálogo/la escena; en jugabilidad, si
-// hay un diálogo en pantalla lo avanza (prioridad), y si no, ataca (antes
-// era el clic izquierdo).
+// hay un aviso de objeto conseguido lo cierra (prioridad máxima), si no hay
+// un diálogo en pantalla lo avanza, y si no, ataca (antes era el clic
+// izquierdo).
 Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
     Cutscene.handleAction(now);
+  } else if ((mode === 'gameplay' || mode === 'small') && ItemPopup.active) {
+    ItemPopup.dismiss();
   } else if ((mode === 'gameplay' || mode === 'small') && Dialogue.active) {
     Dialogue.advance(now);
   } else if ((mode === 'gameplay' || mode === 'small') && !macSprayPhase && !deathPhase) {
@@ -98,6 +101,7 @@ function startSmallWorld(now) {
   SwordPickup.active = false;
   Ants.reset(now, smallGroundY);
   Worm.init(now, smallGroundY);
+  Talp.init(now, smallGroundY);
   Platforms.reset();
   Pickups.items = []; // limpia pulseras de una posible partida anterior
   // pulseras "de regalo" encima de las plataformas bonus, ya colocadas desde el inicio del tramo
@@ -154,6 +158,7 @@ function restartSmallWorld(now) {
   Player.bracelets = 0;
   Player.hasSword = false;
   Pickups.items = [];
+  ItemPopup.dismiss();
   startSmallWorld(now);
 }
 
@@ -203,6 +208,10 @@ function update() {
     return; // el mundo se congela mientras se habla
   }
 
+  if (ItemPopup.active) {
+    return; // el mundo se congela mientras se ve el aviso de objeto conseguido
+  }
+
   if (mode === 'small') {
     Player.update();
     checkPitFall(now); // caer por la gran travesía (o el segundo agujero) = "Has Fallat" y se reinicia el tramo
@@ -214,6 +223,9 @@ function update() {
     checkWormSwordHit(now, Player, smallGroundY); // primero el golpe, o el contacto lateral haría daño igualmente
     checkWormCollision(now, Player, smallGroundY);
     Worm.update(now);
+    checkTalpSwordHit(now, Player, smallGroundY); // primero el golpe, o el contacto lateral haría daño igualmente
+    checkTalpCollision(now, Player, smallGroundY);
+    Talp.update(now, Player, smallGroundY);
     Camera.update(Player.x, CONFIG.SMALL_WORLD.LEVEL_WIDTH);
     GrassBlade.update(now);
     SwordPickup.update(now, Player, smallGroundY);
@@ -274,12 +286,14 @@ function draw(t) {
     SwordPickup.draw(ctx, now, smallGroundY, Camera.x);
     Ants.draw(ctx, now, Camera.x);
     Worm.draw(ctx, now, Camera.x);
+    Talp.draw(ctx, now, Camera.x);
     Player.draw(ctx, t, smallGroundY, Camera.x);
     Pickups.draw(ctx, now, Camera.x); // pulseras sueltas por la hormiga, volando al contador
     Dialogue.draw(ctx, getSpeakerBox);
     drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
     drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
     if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
+    if (ItemPopup.active) drawItemPopup(ctx, now, canvas.width, canvas.height, ItemPopup);
     return;
   }
 
@@ -314,6 +328,7 @@ if (CONFIG.DEBUG) {
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     const now = performance.now();
+    if ('12345678'.includes(e.key)) ItemPopup.dismiss(); // por si algún atajo salta en mitad del aviso de objeto
 
     if (e.key === '1') {
       // justo antes del agujero
@@ -374,12 +389,12 @@ if (CONFIG.DEBUG) {
       Player.hasSword = true;
       Player.x = CONFIG.SMALL_WORLD.PITS[0].x - 60;
     } else if (e.key === '7') {
-      // justo antes de la hormiga veterana (final del tramo), con espada
+      // justo antes del jefe Talp (final del tramo), con espada
       deathPhase = null;
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
-      Player.x = CONFIG.ANT.SPAWNS[CONFIG.ANT.ELITE_INDEX] - 150;
+      Player.x = CONFIG.TALP.SPAWN_X - CONFIG.TALP.WAKE_DISTANCE - 30;
     } else if (e.key === '8') {
       // justo antes del gusano, con espada
       deathPhase = null;
@@ -390,7 +405,7 @@ if (CONFIG.DEBUG) {
     }
   });
 
-  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes de la hormiga veterana · 8 = antes del gusano');
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano');
 }
 
 loadAssets(() => {

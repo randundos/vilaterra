@@ -166,7 +166,12 @@ const SwordPickup = {
     if (Math.abs(player.x - this.x) <= CONFIG.SMALL_WORLD.SWORD_COLLECT_RADIUS) {
       this.active = false;
       this.collected = true;
-      player.hasSword = true; // TODO: cambiar el sprite de Hero cuando llegue la versión armada
+      player.hasSword = true;
+      ItemPopup.show(
+        now,
+        ASSETS.sword,
+        "Has trobat una espasa dins d'un bri d'herba. Fes-la servir per acabar amb els que et volen parar els peus"
+      );
     }
   },
 

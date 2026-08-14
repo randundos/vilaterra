@@ -97,3 +97,75 @@ function drawDeathOverlay(ctx, now, deathStart) {
   ctx.fillText('Has Fallat', cx, cy);
   ctx.restore();
 }
+
+// Aviso emergente "objeto conseguido" (ver ItemPopup en popup.js): icono a
+// la izquierda dentro de una ranura oscura, texto a la derecha, con un
+// marco de esquinas cuadradas (sin bordes redondeados) para que encaje con
+// la estética pixel art del resto del juego, en vez de la caja de diálogo
+// habitual. Aparece con un pequeño "pop" de escala + fundido.
+function drawItemPopup(ctx, now, canvasW, canvasH, popup) {
+  if (!popup.active) return;
+  const C = CONFIG.ITEM_POPUP;
+  const t = Math.min(1, (now - popup.shownAt) / C.POP_MS);
+  const ease = 1 - Math.pow(1 - t, 3);
+
+  ctx.save();
+  ctx.fillStyle = `rgba(0, 0, 0, ${0.45 * ease})`;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+  ctx.restore();
+
+  ctx.font = 'bold 18px Trebuchet MS';
+  const maxTextW = C.BOX_W - C.PADDING * 3 - C.ICON_SIZE;
+  const lines = wrapText(ctx, popup.text, maxTextW);
+  const lineHeight = 24;
+  const contentH = Math.max(C.ICON_SIZE, lines.length * lineHeight);
+  const boxW = C.BOX_W;
+  const boxH = contentH + C.PADDING * 2;
+  const bx = (canvasW - boxW) / 2;
+  const by = (canvasH - boxH) / 2;
+
+  ctx.save();
+  ctx.globalAlpha = ease;
+  const scale = 0.85 + ease * 0.15;
+  const cx = canvasW / 2, cy = canvasH / 2;
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.translate(-cx, -cy);
+
+  // marco: borde negro grueso de esquinas cuadradas + relleno color
+  // pergamino + un filete interior más claro (nada de bordes redondeados)
+  ctx.fillStyle = '#1c1408';
+  ctx.fillRect(bx - C.BORDER, by - C.BORDER, boxW + C.BORDER * 2, boxH + C.BORDER * 2);
+  ctx.fillStyle = '#f3e6c8';
+  ctx.fillRect(bx, by, boxW, boxH);
+  ctx.strokeStyle = '#c9a86a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx + 4, by + 4, boxW - 8, boxH - 8);
+
+  // icono a la izquierda, dentro de una ranura oscura cuadrada
+  const slotX = bx + C.PADDING;
+  const slotY = by + boxH / 2 - C.ICON_SIZE / 2;
+  ctx.fillStyle = '#2b2013';
+  ctx.fillRect(slotX - 4, slotY - 4, C.ICON_SIZE + 8, C.ICON_SIZE + 8);
+  const icon = popup.icon;
+  if (icon && icon.complete && icon.width > 0) {
+    const ratio = icon.width / icon.height;
+    let iw = C.ICON_SIZE, ih = C.ICON_SIZE;
+    if (ratio > 1) ih = iw / ratio; else iw = ih * ratio;
+    ctx.drawImage(icon, slotX + (C.ICON_SIZE - iw) / 2, slotY + (C.ICON_SIZE - ih) / 2, iw, ih);
+  }
+
+  // texto a la derecha, centrado verticalmente junto al icono
+  const textX = slotX + C.ICON_SIZE + C.PADDING;
+  ctx.fillStyle = '#2b2013';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const textBlockH = lines.length * lineHeight;
+  const textStartY = by + boxH / 2 - textBlockH / 2 + lineHeight / 2;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, textX, textStartY + i * lineHeight);
+  });
+  ctx.restore();
+
+  drawPressHint(ctx, 'E per continuar', canvasW, canvasH, now);
+}

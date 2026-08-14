@@ -2,7 +2,7 @@
 // ASSET_V se añade como query string a cada imagen para evitar que el
 // navegador sirva una versión vieja cacheada de un archivo que hemos
 // sustituido en disco (mismo nombre de archivo, contenido nuevo).
-const ASSET_V = 6;
+const ASSET_V = 8;
 function withV(path) {
   return `${path}?v=${ASSET_V}`;
 }
@@ -22,8 +22,13 @@ const ASSETS = {
   heroAttackPunch: [],      // 4 frames reales del puñetazo (sin espada)
   sword: new Image(),     // espada suelta, para el pickup en el suelo del tramo de hierba
   bgSmallWorld: new Image(), // fondo del tramo "Hero pequeño" entre la hierba
-  ant: new Image(),       // hormiga con rifle, primer y tercer enemigo del tramo de hierba
+  ant: new Image(),       // hormiga con rifle, primer enemigo del tramo de hierba
   worm: { rest: new Image(), move: new Image(), jump: new Image(), death: new Image() }, // gusano, 2o enemigo del tramo de hierba
+  talp: {                 // Talp (topo), jefe final del tramo de hierba
+    emerge: new Image(), taunt: new Image(), idle: new Image(), move: new Image(),
+    attack1: new Image(), attack2: new Image(), damage1: new Image(), damage2: new Image(),
+    death: [] // 3 fases: se hunde en la tierra por etapas
+  },
   blai: new Image(),      // solo aparece en la cinemática inicial
   blaiShock: new Image(), // pose de Blai preocupado (manos a la cabeza) para el diálogo
   blaiPoint: new Image(), // pose de Blai señalando hacia Hero al pedirle ayuda
@@ -49,6 +54,14 @@ ASSETS.worm.rest.src = withV('../Visuals/worm/rest.png');
 ASSETS.worm.move.src = withV('../Visuals/worm/move.png');
 ASSETS.worm.jump.src = withV('../Visuals/worm/jump.png');
 ASSETS.worm.death.src = withV('../Visuals/worm/death.png');
+ASSETS.talp.emerge.src = withV('../Visuals/talp/emerge.png');
+ASSETS.talp.taunt.src = withV('../Visuals/talp/taunt.png');
+ASSETS.talp.idle.src = withV('../Visuals/talp/idle.png');
+ASSETS.talp.move.src = withV('../Visuals/talp/move.png');
+ASSETS.talp.attack1.src = withV('../Visuals/talp/attack1.png');
+ASSETS.talp.attack2.src = withV('../Visuals/talp/attack2.png');
+ASSETS.talp.damage1.src = withV('../Visuals/talp/damage1.png');
+ASSETS.talp.damage2.src = withV('../Visuals/talp/damage2.png');
 
 const HERO_WALK_FRAME_COUNT = 6;
 const HERO_JUMP_FRAME_COUNT = 4;
@@ -66,6 +79,7 @@ loadFrameSet(ASSETS.heroJumpSword, 'hero_jump_sword', 'jump', HERO_JUMP_FRAME_CO
 loadFrameSet(ASSETS.heroAttackVertical, 'hero_attack_vertical', 'slash', CONFIG.ATTACK.SWORD_FRAME_COUNT);
 loadFrameSet(ASSETS.heroAttackHorizontal, 'hero_attack_horizontal', 'slash', CONFIG.ATTACK.SWORD_FRAME_COUNT);
 loadFrameSet(ASSETS.heroAttackPunch, 'hero_attack_punch', 'punch', CONFIG.ATTACK.UNARMED_FRAME_COUNT);
+loadFrameSet(ASSETS.talp.death, 'talp', 'death', 3);
 ASSETS.blai.src = withV('../Visuals/Blai_sinfondo.png');
 ASSETS.blaiShock.src = withV('../Visuals/Blai_preocupat_sinfondo.png');
 ASSETS.blaiPoint.src = withV('../Visuals/Blai_preguntant_sinfondo.png');

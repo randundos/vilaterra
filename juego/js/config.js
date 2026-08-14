@@ -127,16 +127,12 @@ const CONFIG = {
   // quedan quietas y disparan balas a intervalos regulares; el Hero tiene que
   // esquivarlas saltando hasta acercarse lo suficiente para rematarlas con la
   // espada (clic izquierdo) o saltándoles encima. SPAWNS tiene una posición
-  // por cada hormiga del nivel (la 2a se sustituyó por el gusano, ver WORM);
-  // la de índice ELITE_INDEX es una versión "veterana" (dispara más rápido,
-  // teñida de rojo) para variar la dificultad hacia el final del tramo, sin
-  // necesitar arte nuevo.
+  // por cada hormiga del nivel (la 2a se sustituyó por el gusano, ver WORM; la
+  // que iba al final se sustituyó por el jefe Talp, ver TALP).
   ANT: {
     HEIGHT: 102,             // escalada junto con HERO_HEIGHT_SMALL, para mantener su proporción respecto a Hero
-    SPAWNS: [1150, 3080], // más allá del tallo/espada, para que ya vaya armado al llegar
-    ELITE_INDEX: 1,
-    ELITE_FIRE_FACTOR: 0.55,   // la veterana dispara ~el doble de rápido
-    ELITE_TINT: 'rgba(200, 40, 40, 0.5)',
+    SPAWNS: [1150], // más allá del tallo/espada, para que ya vaya armado al llegar
+    ELITE_INDEX: -1, // ya no hay ninguna "veterana": el final del tramo lo lleva Talp
     FIRE_INTERVAL_MS: 1500,  // una bala cada segundo y medio (normal)
     BULLET_SPEED: 6,
     BULLET_RADIUS: 6,
@@ -171,12 +167,50 @@ const CONFIG = {
     BRACELET_REWARD: 4
   },
 
+  // Talp (topo): jefe final del tramo de hierba, sustituye a la hormiga
+  // veterana. Emerge del suelo al acercarse Hero, hace un rugido de
+  // intimidación, y luego patrulla alternando entre pisotón/espada como
+  // única forma de hacerle daño de verdad (las poses ATTACK1/ATTACK2 son
+  // solo un ademán amenazante al tener a Hero cerca, no un ataque a
+  // distancia). Hace falta golpearlo más de 5 veces (6) para matarlo; al
+  // morir se hunde en la tierra en varias fases antes de desaparecer.
+  TALP: {
+    HEIGHT: 140,          // más grande que Hero, para que se note que es el jefe
+    SPAWN_X: 3080,        // donde antes iba la hormiga veterana
+    WAKE_DISTANCE: 260,   // a esta distancia empieza a emerger
+    EMERGE_MS: 550,
+    TAUNT_MS: 900,
+    SPEED: 1.1,
+    PATROL_RANGE: 90,
+    IDLE_MS: 900,
+    MOVE_MS: 900,
+    ATTACK_RANGE: 150,    // a esta distancia, de vez en cuando hace un ademán de ataque
+    ATTACK_POSE_MS: 500,
+    ATTACK_COOLDOWN_MS: 1400,
+    HURT_MS: 350,
+    HITS_TO_KILL: 6,      // "más de 5 veces"
+    DEATH_STAGE_MS: 320,  // cuánto se ve cada fase de la animación de hundirse
+    DEATH_FADE_MS: 500,
+    BRACELET_REWARD: 10   // recompensa de jefe, el doble que una hormiga normal
+  },
+
   HUD: {
     HEALTH_BAR_X: 18,
     HEALTH_BAR_Y: 14,
     HEALTH_BAR_W: 220,     // ancho en pantalla de la barra completa
     BRACELET_ICON_SIZE: 40,
     MARGIN: 16              // margen respecto al borde del canvas
+  },
+
+  // Aviso emergente estilo "objeto conseguido" (p.ej. al recoger la espada):
+  // congela el mundo (como un diálogo) hasta que se cierra con E. Icono a
+  // la izquierda dentro de una ranura, texto a la derecha.
+  ITEM_POPUP: {
+    POP_MS: 220,     // animación de aparición (escala + fundido)
+    ICON_SIZE: 72,
+    BOX_W: 560,
+    PADDING: 18,
+    BORDER: 4
   },
 
   // Pulseras que quedan flotando al morir un enemigo, hasta que el Hero
