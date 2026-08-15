@@ -184,8 +184,8 @@ const CONFIG = {
   // duración total de cada ciclo sale de multiplicarlo por su nº de frames.
   TALP: {
     HEIGHT: 140,           // más grande que Hero, para que se note que es el jefe
-    CAVE_X: 3640,          // dentro de la boca de la cueva, punto de partida mientras está "dormant"
-    GUARD_X: 3450,         // puesto de guardia, delante de la boca, tras salir de la cueva
+    CAVE_X: 3750,          // dentro de la boca de la cueva, punto de partida mientras está "dormant"
+    GUARD_X: 3525,         // puesto de guardia, delante de la boca, tras salir de la cueva
     WAKE_DISTANCE: 260,    // a esta distancia (respecto a GUARD_X) empieza a salir
     SPEED: 1.6,            // ritmo al caminar, tanto al salir de la cueva como al perseguir
     WALK_FRAME_MS: 90,     // ciclo de 5 frames -> ~450ms por zancada completa
@@ -259,25 +259,26 @@ const CONFIG = {
     ],
 
     // Cueva al final del tramo: la salida hacia "nivel 2, parte 2". Usa la
-    // imagen real (ASSETS.caveWall, ver textura_cueva.png... ahora
-    // cueva_entrada.png) en vez de dibujo procedural: GROUND_LINE_FRAC es la
-    // fila (fracción de la altura de la imagen) que coincide con el suelo
-    // del juego, así se escala y posiciona para que encaje exactamente con
-    // el resto del suelo; MOUTH_CENTER_FRAC/MOUTH_WIDTH_FRAC ubican la boca
-    // oscura dentro de esa imagen ya escalada, solo para las rocas y el
-    // cálculo de X/GATE_X/TRANSITION_X de abajo (medidos a ojo sobre la
-    // imagen). Mientras Talp siga vivo, una barrera invisible (ver
-    // blockCaveEntrance en cave.js) impide pasar de GATE_X, con unas rocas
-    // dibujadas encima a modo de bloqueo visual; en cuanto muere, las rocas
-    // se desvanecen (CaveGate) y cruzar hasta TRANSITION_X dispara el
-    // cambio de pantalla.
+    // imagen real (ASSETS.caveWall, cueva_entrada.png), ya sin césped/cielo
+    // propios (recortada a solo el promontorio de roca + boca oscura, sobre
+    // fondo transparente) para que el césped/cielo del propio fondo del
+    // juego se vea detrás. Se ancla por la base directamente a groundY
+    // (DRAW_HEIGHT fija la altura en pantalla, el ancho sale de mantener la
+    // proporción real de la imagen) y se coloca SIEMPRE pegada al final del
+    // nivel (drawX = LEVEL_WIDTH - drawW, ver drawCaveEntrance en render.js),
+    // así que ya no hace falta una X fija. MOUTH_CENTER_FRAC/MOUTH_WIDTH_FRAC
+    // ubican la boca oscura dentro de esa imagen ya escalada (medido sobre la
+    // imagen real), solo para el cálculo de GATE_X/TRANSITION_X de abajo.
+    // Mientras Talp siga vivo, una barrera invisible (ver blockCaveEntrance
+    // en cave.js) impide pasar de GATE_X, sin nada dibujado encima; en
+    // cuanto muere, cruzar hasta TRANSITION_X dispara el cambio de pantalla.
     CAVE: {
-      X: 3200,               // borde izquierdo de la imagen, en coordenadas de MUNDO
-      GROUND_LINE_FRAC: 0.842,
-      MOUTH_CENTER_FRAC: 0.85, // centro de la boca oscura, como fracción del ancho ya escalado
-      MOUTH_WIDTH_FRAC: 0.22,  // ancho aproximado de la boca, como fracción del ancho ya escalado
-      GATE_X: 3610,           // hasta dónde se puede acercar a la boca mientras Talp siga vivo
-      TRANSITION_X: 3700      // cruzar este punto (con Talp derrotado) = pasa a nivel 2 parte 2
+      DRAW_HEIGHT: 320,        // alto en pantalla de la imagen de la cueva (ancho = proporcional)
+      GROUND_OVERLAP: 6,       // baja la imagen unos px de más para que no quede rendija con el césped/suelo
+      MOUTH_CENTER_FRAC: 0.79, // centro de la boca oscura, como fracción del ancho ya escalado
+      MOUTH_WIDTH_FRAC: 0.41,  // ancho aproximado de la boca, como fracción del ancho ya escalado
+      GATE_X: 3685,           // hasta dónde se puede acercar a la boca mientras Talp siga vivo
+      TRANSITION_X: 3740      // cruzar este punto (con Talp derrotado) = pasa a nivel 2 parte 2
     },
 
     // Plataformas flotantes: "top" es cuánto se elevan sobre el suelo (en

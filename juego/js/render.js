@@ -212,50 +212,29 @@ function drawSmallWorldBackground(ctx, cameraX) {
   SmallWorldPits.list.forEach((pit) => drawPit(ctx, pit, cameraX, groundY, groundH, ASSETS.bgSmallWorld, CONFIG.PARALLAX_SKY_FACTOR));
 }
 
-// Cueva del final del tramo de hierba: la imagen real (ASSETS.caveWall), un
-// promontorio de tierra con la boca de la cueva ya dibujada dentro. Se
-// escala para que la fila marcada por CAVE.GROUND_LINE_FRAC caiga
-// exactamente en groundY (igual que encaja la textura de suelo normal), y
-// se posiciona con su borde izquierdo en CAVE.X. Mientras Talp no esté
-// derrotado, unas rocas tapan la boca (rubbleAlpha 1 -> 0 según se van
-// desvaneciendo al abrirse el paso).
-function drawCaveEntrance(ctx, cameraX, groundY, rubbleAlpha) {
+// Cueva del final del tramo de hierba: la imagen real (ASSETS.caveWall), ya
+// recortada a solo el promontorio de roca + boca oscura (sin césped ni
+// cielo propios, sobre fondo transparente), para que el césped/cielo del
+// propio fondo del juego se vea detrás. Se dibuja a CAVE.DRAW_HEIGHT de alto
+// (ancho proporcional), anclada por la base a groundY (con un pequeño
+// solape GROUND_OVERLAP hacia abajo para que no quede ninguna rendija entre
+// la roca y la textura de suelo/césped), y SIEMPRE pegada al final del
+// nivel (borde derecho = LEVEL_WIDTH). El bloqueo de la boca mientras Talp
+// siga vivo es puramente invisible (ver blockCaveEntrance en cave.js), sin
+// rocas dibujadas encima.
+function drawCaveEntrance(ctx, cameraX, groundY) {
   const img = ASSETS.caveWall;
   if (!img.complete || img.width === 0) return;
   const CAVE = CONFIG.SMALL_WORLD.CAVE;
 
-  const groundLineImgY = img.height * CAVE.GROUND_LINE_FRAC;
-  const scale = (CONFIG.CANVAS_H - groundY) / (img.height - groundLineImgY);
-  const drawW = img.width * scale;
-  const drawH = img.height * scale;
-  const screenX = CAVE.X - cameraX;
+  const drawH = CAVE.DRAW_HEIGHT;
+  const drawW = img.width * (drawH / img.height);
+  const worldX = CONFIG.SMALL_WORLD.LEVEL_WIDTH - drawW;
+  const screenX = worldX - cameraX;
   if (screenX + drawW < -40 || screenX > CONFIG.CANVAS_W + 40) return;
-  const drawY = groundY - groundLineImgY * scale;
+  const drawY = groundY - drawH + CAVE.GROUND_OVERLAP;
 
   ctx.drawImage(img, screenX, drawY, drawW, drawH);
-
-  // rocas bloqueando la boca mientras Talp siga vivo
-  if (rubbleAlpha > 0.01) {
-    const mouthX = screenX + drawW * CAVE.MOUTH_CENTER_FRAC;
-    const mouthW = drawW * CAVE.MOUTH_WIDTH_FRAC;
-    ctx.save();
-    ctx.globalAlpha = rubbleAlpha;
-    const baseY = groundY - 4;
-    const rocks = [
-      [-0.32, 0.95, '#8a7053'], [0.02, 1.1, '#6b5640'], [0.34, 0.9, '#7d6449'],
-      [-0.08, 0.6, '#9c8768'], [0.18, 0.55, '#7d6449']
-    ];
-    rocks.forEach(([ox, rscale, color]) => {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.ellipse(mouthX + ox * mouthW, baseY - 14 * rscale, 20 * rscale, 16 * rscale, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(30, 20, 10, 0.5)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    });
-    ctx.restore();
-  }
 }
 
 // Fondo de "nivel 2, parte 2": mismo estilo visual que el tramo de hierba

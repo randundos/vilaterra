@@ -103,7 +103,6 @@ function startSmallWorld(now) {
   Ants.reset(now, smallGroundY);
   Worm.init(now, smallGroundY);
   Talp.init(now, smallGroundY);
-  CaveGate.reset(); // rocas tapando la boca de la cueva, hasta que se derrote a Talp otra vez
   Platforms.reset();
   Pickups.items = []; // limpia pulseras de una posible partida anterior
   // pulseras "de regalo" encima de las plataformas bonus, ya colocadas desde el inicio del tramo
@@ -293,7 +292,6 @@ function update() {
     checkTalpCollision(now, Player, smallGroundY);
     Talp.update(now, Player, smallGroundY);
     blockTalpBody(Player, smallGroundY); // el cuerpo de Talp es sólido a su alrededor, pero se puede saltar por encima
-    CaveGate.update(now);
     blockCaveEntrance(Player); // barrera de la boca de la cueva, esta sí ocupa toda la altura, mientras Talp no esté derrotado
     if (checkCaveTransition(Player)) startCaveTransition(now);
     Camera.update(Player.x, CONFIG.SMALL_WORLD.LEVEL_WIDTH);
@@ -362,7 +360,7 @@ function draw(t) {
 
   if (mode === 'small') {
     drawSmallWorldBackground(ctx, Camera.x);
-    drawCaveEntrance(ctx, Camera.x, smallGroundY, CaveGate.rubbleAlpha);
+    drawCaveEntrance(ctx, Camera.x, smallGroundY);
     Platforms.draw(ctx, smallGroundY, Camera.x);
     GrassBlade.draw(ctx, now, smallGroundY, Camera.x);
     SwordPickup.draw(ctx, now, smallGroundY, Camera.x);
