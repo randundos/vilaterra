@@ -101,7 +101,7 @@ function startSmallWorld(now) {
   GrassBlade.reset();
   SwordPickup.active = false;
   Ants.reset(now, smallGroundY);
-  Worm.init(now, smallGroundY);
+  Worms.reset(now, smallGroundY);
   Talp.init(now, smallGroundY);
   Platforms.reset();
   Pickups.items = []; // limpia pulseras de una posible partida anterior
@@ -287,7 +287,7 @@ function update() {
     Ants.update(now, Player, smallGroundY, Camera.x);
     checkWormSwordHit(now, Player, smallGroundY); // primero el golpe, o el contacto lateral haría daño igualmente
     checkWormCollision(now, Player, smallGroundY);
-    Worm.update(now);
+    Worms.update(now);
     checkTalpSwordHit(now, Player, smallGroundY); // primero el golpe, o el pisotón lo mataría igual
     checkTalpCollision(now, Player, smallGroundY);
     Talp.update(now, Player, smallGroundY);
@@ -365,7 +365,7 @@ function draw(t) {
     GrassBlade.draw(ctx, now, smallGroundY, Camera.x);
     SwordPickup.draw(ctx, now, smallGroundY, Camera.x);
     Ants.draw(ctx, now, Camera.x);
-    Worm.draw(ctx, now, Camera.x);
+    Worms.draw(ctx, now, Camera.x);
     Talp.draw(ctx, now, Camera.x);
     Player.draw(ctx, t, smallGroundY, Camera.x);
     Pickups.draw(ctx, now, Camera.x); // pulseras sueltas por la hormiga, volando al contador
@@ -482,7 +482,7 @@ if (CONFIG.DEBUG) {
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
-      Player.x = CONFIG.WORM.SPAWN_X - 150;
+      Player.x = CONFIG.WORM.SPAWNS[0] - 150;
     } else if (e.key === '9') {
       // nivel 2 parte 2, al otro lado de la cueva (Talp ya "derrotado")
       deathPhase = null;

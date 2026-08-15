@@ -150,20 +150,26 @@ const CONFIG = {
   // Gusano: segundo enemigo del tramo de hierba (sustituye a la 2a hormiga).
   // No dispara: patrulla de lado a lado y de vez en cuando da un saltito
   // (arco simple), y hace daño por contacto igual que el jabalí. Se mata
-  // saltándole encima o con la espada, igual que el resto. Solo hay una
-  // imagen por estado (sin ciclo de animación propio): reposo, movimiento,
-  // salto y muerte.
+  // saltándole encima o con la espada, igual que el resto. "rest" es una
+  // única pose quieta; move/jump/death son ciclos reales de varios frames
+  // (extraídos de bug.gif, frames 1-7: 2a imagen = move, 3a = jump, 4a =
+  // death, que ya se desvanece por sí sola en solo 6 frames). Worms.list
+  // guarda varias instancias con el mismo comportamiento (una por cada
+  // SPAWNS), lo bastante cerca entre sí como para poder solaparse.
   WORM: {
-    HEIGHT: 46,
-    SPAWN_X: 2500,        // donde antes iba la 2a hormiga
+    HEIGHT: 40,            // un poco más pequeños que antes (era 46)
+    SPAWNS: [2440, 2500, 2560], // 3 gusanos, patrullas solapadas
     SPEED: 1.4,
     PATROL_RANGE: 140,
     REST_MS: 700,         // pausa al arrancar y en cada extremo de la patrulla
     HOP_EVERY_MS: 1600,   // cada cuánto da un saltito mientras patrulla
     HOP_MS: 420,          // duración del saltito
     HOP_HEIGHT: 22,
-    DEATH_HOLD_MS: 200,   // se queda visible con la pose de muerte antes de desvanecerse
-    DEATH_FADE_MS: 500,
+    MOVE_FRAME_MS: 90,    // ciclo de 7 frames en bucle mientras anda
+    JUMP_FRAME_MS: 60,    // ciclo de 7 frames, una vez por saltito (7*60 ≈ HOP_MS)
+    DEATH_FRAME_MS: 90,   // ciclo de 6 frames, una vez, ya se desvanece él solo
+    DEATH_HOLD_MS: 150,   // se queda en el último frame antes de empezar a desvanecerse del todo
+    DEATH_FADE_MS: 350,
     BRACELET_REWARD: 4
   },
 
@@ -187,11 +193,11 @@ const CONFIG = {
     CAVE_X: 3750,          // dentro de la boca de la cueva, punto de partida mientras está "dormant"
     GUARD_X: 3525,         // puesto de guardia, delante de la boca, tras salir de la cueva
     WAKE_DISTANCE: 260,    // a esta distancia (respecto a GUARD_X) empieza a salir
-    SPEED: 1.6,            // ritmo al caminar, tanto al salir de la cueva como al perseguir
+    SPEED: 2.1,            // ritmo al caminar, tanto al salir de la cueva como al perseguir (antes 1.6: más agresivo al perseguir)
     WALK_FRAME_MS: 90,     // ciclo de 5 frames -> ~450ms por zancada completa
     TAUNT_FRAME_MS: 70,    // ciclo de 13 frames -> ~910ms de rugido
     IDLE_FRAME_MS: 180,    // ciclo de 8 frames, de fondo mientras espera
-    CHASE_LEASH: 420,      // no se aleja más de esto de GUARD_X al perseguir
+    CHASE_LEASH: 950,      // no se aleja más de esto de GUARD_X al perseguir (antes 420: ahora cubre casi todo el tramo, para que no se rinda si Hero se aleja)
     ATTACK_RANGE: 150,     // a esta distancia deja de avanzar y ataca en vez de seguir acercándose
     HIT_RANGE: 170,        // rango real en el que el golpe conecta (algo más generoso que ATTACK_RANGE)
     ATTACK_FRAME_MS: 65,   // ciclo de 9 frames -> ~585ms de ataque
