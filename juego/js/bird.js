@@ -1,26 +1,32 @@
-// Pájaro (puput): jefe final del nivel 2 parte 2 (ver CONFIG.BIRD). A
-// diferencia de Talp, NO se le puede derrotar: Hero puede moverse, saltar y
-// atacar con espada/puñetazo con normalidad, y el pájaro reacciona con un
-// breve parpadeo al golpe (ver Bird.flinch), pero eso no cuenta para nada -
-// el combate está pensado para que el pájaro acabe aterrizando sus propios
-// golpes sí o sí. Cada ataque que conecta hace daño normal (igual que
-// cualquier otro enemigo); al conectar el 7º golpe, en vez de seguir
-// atacando agarra a Hero y se lo lleva volando (ver updateCapture/drawCapture,
-// una pequeña cinemática en varias fases: grab -> rise -> exit -> fade),
-// terminando en la pantalla "pròximament" (ver drawBirdEndOverlay en ui.js).
-// Solo hay dos poses reales (de pie/volando y picoteando/atacando): "active"
-// usa un balanceo vertical simple (HOVER_*) para simular que planea, ya que
-// no hay un ciclo de vuelo propio.
+// Pájaro (puput): jefe final del nivel 2 parte 2 (ver CONFIG.BIRD). NO se le
+// puede matar (es invulnerable a la espada/puñetazo), pero SÍ cuentan los
+// golpes de Hero que conectan (ver checkBirdSwordHit/Bird.flinch): al llegar
+// al 5º golpe (HITS_TO_CAPTURE), en vez de seguir atacando agarra a Hero y se
+// lo lleva volando (ver updateCapture/drawCapture, una pequeña cinemática en
+// varias fases: grab -> rise -> exit -> fade), dando paso a PoolScene (ver
+// poolscene.js), la apertura del nivel 3. El pájaro también ataca de
+// verdad y hace daño normal si conecta, pero eso NO cuenta para la captura -
+// solo es la amenaza real del combate mientras Hero intenta darle sus 5 golpes.
+// Mientras vuela (dormant/active/captured) usa el ciclo real de aleteo de 4
+// frames (ASSETS.bird.flap, ver CONFIG.BIRD.FLAP_FRAME_MS); al atacar cambia
+// a la pose fija de picotazo (ASSETS.bird.attack). Cada frame del aleteo está
+// recortado a su contenido real (alas arriba/abajo cambian mucho de tamaño),
+// así que se usa un único factor de escala (this.scale, calculado en init a
+// partir de stand.png) para TODOS los sprites del pájaro en vez de forzar
+// siempre la misma altura (mismo motivo que getScaledBox en render.js: si no,
+// las alas extendidas se verían más grandes/pequeñas de golpe entre frames).
 const Bird = {
   x: 0,
   baseX: 0,
   groundY: 0,
   height: CONFIG.BIRD.HEIGHT,
+  scale: 1, // lo recalcula init() a partir de ASSETS.bird.stand
   facing: 'left', // el sprite mira de forma natural hacia la IZQUIERDA
   state: 'dormant', // dormant | active | attack | captured
   stateStart: 0,
   active: false,
-  hitsLanded: 0,
+  hitsLanded: 0, // golpes de Hero que han conectado (NO los que da el pájaro)
+  lastSwordHitSwing: -1, // player.attackStart del último tajo ya contado, para no contar el mismo swing varias veces (checkBirdSwordHit se llama cada frame mientras dura la animación de ataque)
   nextAttackAt: 0,
   attackHit: false,
   flinchUntil: 0,
@@ -34,11 +40,17 @@ const Bird = {
     this.baseX = CONFIG.BIRD.SPAWN_X;
     this.x = CONFIG.BIRD.SPAWN_X;
     this.groundY = groundY;
+    // igual que Veggies/Worms: un único factor de escala (px de imagen -> px
+    // de mundo) a partir de un frame de referencia (stand.png), para que
+    // todas las poses del pájaro (de pie, aleteando, atacando) mantengan un
+    // tamaño coherente entre sí.
+    this.scale = CONFIG.BIRD.HEIGHT / ASSETS.bird.stand.height;
     this.facing = 'left';
     this.state = 'dormant';
     this.stateStart = now;
     this.active = false;
     this.hitsLanded = 0;
+    this.lastSwordHitSwing = -1;
     this.nextAttackAt = 0;
     this.attackHit = false;
     this.flinchUntil = 0;
@@ -60,26 +72,46 @@ const Bird = {
     this.flinchUntil = now + CONFIG.BIRD.FLINCH_MS;
   },
 
-  _frameImg() {
-    return this.state === 'attack' ? ASSETS.bird.attack : ASSETS.bird.stand;
+  // 'attack' usa la pose fija de picotazo; cualquier otro estado (dormant,
+  // active, captured) usa el ciclo real de 4 frames aleteando, en bucle.
+  _frameImg(now) {
+    if (this.state === 'attack') return ASSETS.bird.attack;
+    const frames = ASSETS.bird.flap;
+    if (!frames.length || !frames[0].complete || frames[0].width === 0) return ASSETS.bird.stand;
+    const idx = Math.floor((now || 0) / CONFIG.BIRD.FLAP_FRAME_MS) % frames.length;
+    return frames[idx];
   },
 
   // Punto de anclaje vertical (el "groundY" que se le pasa a getBox: el
-  // borde inferior del sprite), compartido entre getBox() y draw() para que
-  // la caja de colisión coincida siempre con la posición realmente dibujada
-  // (el pájaro vuela, no está pegado al suelo como el resto de enemigos).
+  // borde inferior del RECORTE de la imagen), compartido entre getBox() y
+  // draw() para que la caja de colisión coincida siempre con la posición
+  // realmente dibujada. Los pies tocan el suelo (igual que el resto de
+  // enemigos): solo un balanceo MUY leve (HOVER_AMPLITUDE), sin despegar del
+  // todo, salvo durante la captura final, que sí levanta el vuelo de verdad.
+  // En attack.png el pico baja a picotear MÁS ABAJO que las patas (el borde
+  // inferior del recorte es el pico, no las patas) - sin este ajuste, anclar
+  // por el borde inferior deja las patas flotando por encima del suelo. Se
+  // compensa bajando el ancla lo que sobresale el pico (ATTACK_FOOT_GAP, en
+  // píxeles de la imagen original) para que sean las PATAS las que toquen
+  // groundY, y el pico se clave un poco en el suelo (normal al picotear).
   _anchorY(now) {
     if (this.state === 'captured') {
       return this.groundY + this.liftY - this.height * 0.55;
     }
-    return this.groundY - this.height * 0.5 + Math.sin(now * CONFIG.BIRD.HOVER_SPEED) * CONFIG.BIRD.HOVER_AMPLITUDE;
+    const base = this.groundY - Math.abs(Math.sin(now * CONFIG.BIRD.HOVER_SPEED)) * CONFIG.BIRD.HOVER_AMPLITUDE;
+    if (this.state === 'attack') {
+      return base + CONFIG.BIRD.ATTACK_FOOT_GAP * this.scale;
+    }
+    return base;
   },
 
   // Caja de colisión en coordenadas de MUNDO (sin restar cámara). Necesita
-  // "now" porque el pájaro flota (ver _anchorY), a diferencia del resto de
-  // enemigos que están siempre pegados a groundY.
+  // "now" porque el pájaro flota (ver _anchorY) y porque elige el frame de
+  // aleteo actual, a diferencia del resto de enemigos que están siempre
+  // pegados a groundY con un frame fijo por estado.
   getBox(now) {
-    return getBox(this._frameImg(), this.x, this._anchorY(now), this.height);
+    const img = this._frameImg(now);
+    return getScaledBox(img.width, img.height, this.x, this._anchorY(now), this.scale);
   },
 
   update(now, player, groundY) {
@@ -106,15 +138,11 @@ const Bird = {
       const elapsed = now - this.stateStart;
       if (!this.attackHit && elapsed >= C.ATTACK_DURATION_MS * C.ATTACK_HIT_FRACTION) {
         this.attackHit = true;
+        // El golpe del pájaro hace daño normal si conecta, pero NO cuenta
+        // para la captura (eso solo lo hacen los golpes de Hero, ver
+        // checkBirdSwordHit): es solo la amenaza real del combate.
         if (Math.abs(dist) <= C.HIT_RANGE && !player.isInvulnerable(now)) {
           player.hurt(now, dist < 0 ? -1 : 1);
-          this.hitsLanded++;
-          if (this.hitsLanded >= C.HITS_TO_CAPTURE) {
-            this._setState(now, 'captured');
-            this.captureSub = 'grab';
-            this.captureStart = now;
-            return;
-          }
         }
       }
       if (elapsed >= C.ATTACK_DURATION_MS) {
@@ -187,10 +215,10 @@ const Bird = {
     if (this.state === 'dormant') return;
     if (!this.active) return;
 
-    const img = this._frameImg();
+    const img = this._frameImg(now);
     if (!img || !img.complete || img.width === 0) return;
 
-    const box = getBox(img, this.x - cameraX, this._anchorY(now), this.height);
+    const box = getScaledBox(img.width, img.height, this.x - cameraX, this._anchorY(now), this.scale);
 
     ctx.save();
     if (now < this.flinchUntil && Math.floor((this.flinchUntil - now) / 50) % 2 === 0) {
@@ -208,7 +236,11 @@ const Bird = {
 };
 
 // Comprueba si el golpe de espada/puñetazo de Hero alcanza al pájaro: no lo
-// mata (es invulnerable), solo dispara el parpadeo (ver Bird.flinch).
+// mata (es invulnerable), pero SÍ cuenta como uno de los golpes hacia la
+// captura (ver Bird.hitsLanded/HITS_TO_CAPTURE). player.attacking se queda a
+// true durante TODA la animación del tajo, así que esta función se llama
+// muchas veces por swing; lastSwordHitSwing evita contar el mismo golpe más
+// de una vez (cada swing tiene su propio player.attackStart).
 function checkBirdSwordHit(now, player, groundY) {
   if (!Bird.active || Bird.state === 'dormant' || Bird.state === 'captured') return;
   if (!player.attacking) return;
@@ -221,5 +253,21 @@ function checkBirdSwordHit(now, player, groundY) {
 
   if (rectsOverlap(atkBox, Bird.getBox(now))) {
     Bird.flinch(now);
+
+    if (Bird.lastSwordHitSwing !== player.attackStart) {
+      Bird.lastSwordHitSwing = player.attackStart;
+      Bird.hitsLanded++;
+      if (Bird.hitsLanded >= CONFIG.BIRD.HITS_TO_CAPTURE) {
+        Bird._setState(now, 'captured');
+        // durante el combate "facing" cambia según de qué lado venga Hero, y
+        // se queda congelado al entrar en 'captured' (update() ya no lo
+        // recalcula); lo fijamos aquí a 'right' porque la salida (exit, más
+        // abajo) siempre se aleja hacia la derecha (this.x += EXIT_SPEED),
+        // así que tiene que mirar hacia donde realmente vuela.
+        Bird.facing = 'right';
+        Bird.captureSub = 'grab';
+        Bird.captureStart = now;
+      }
+    }
   }
 }

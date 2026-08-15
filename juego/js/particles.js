@@ -102,6 +102,38 @@ function spawnWaterDroplet(x, y, targetX, targetY, speed) {
   });
 }
 
+// Chapoteo al caer algo al agua (ver PoolScene, apertura del nivel 3):
+// gotas que saltan hacia arriba/lados y un par de ondas planas que se
+// expanden sobre la superficie.
+function spawnSplash(x, y) {
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.PI + Math.random() * Math.PI; // hacia arriba, en abanico
+    const speed = 1.5 + Math.random() * 3.5;
+    Particles.spawn({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 350 + Math.random() * 300,
+      color: Math.random() < 0.5 ? '#dff6fb' : '#8fd9ec',
+      size: 2.5 + Math.random() * 3,
+      gravity: 0.18,
+      shrink: true
+    });
+  }
+  for (let i = 0; i < 3; i++) {
+    Particles.spawn({
+      x, y,
+      vx: 0, vy: 0,
+      life: 450 + i * 120,
+      color: 'rgba(255,255,255,0.5)',
+      size: 6 + i * 5,
+      gravity: 0,
+      shrink: false,
+      fade: true
+    });
+  }
+}
+
 // Una chispa suelta de la estela de fuego del meteorito al caer.
 function spawnTrailParticle(x, y) {
   Particles.spawn({

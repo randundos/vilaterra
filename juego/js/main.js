@@ -8,7 +8,7 @@ ctx.imageSmoothingEnabled = false;
 const groundY = CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO;
 const smallGroundY = CONFIG.CANVAS_H * CONFIG.SMALL_WORLD.GROUND_Y_RATIO;
 
-let mode = 'cutscene'; // 'cutscene' | 'gameplay' | 'small' | 'small2' (al otro lado de la cueva)
+let mode = 'cutscene'; // 'cutscene' | 'gameplay' | 'small' | 'small2' (al otro lado de la cueva) | 'poolscene' (apertura nivel 3, ver poolscene.js)
 
 // Escena "Mac rocía a Hero con la manguera" tras el diálogo de encuentro:
 // null | 'spraying' (rociando un momento antes de encoger) | 'shrinking' | 'done'
@@ -30,6 +30,8 @@ Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
     Cutscene.handleAction(now);
+  } else if (mode === 'poolscene') {
+    PoolScene.handleAction(now);
   } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && ItemPopup.active) {
     ItemPopup.dismiss();
   } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && Dialogue.active) {
@@ -131,7 +133,16 @@ function startSmallWorld2(now) {
 
   Pickups.items = [];
   Camera.reset();
+  Veggies.reset(now, smallGroundY);
   Bird.init(now, smallGroundY);
+}
+
+// Arranca la escena de apertura del nivel 3 (ver poolscene.js): la dispara
+// update() en cuanto Bird.captureSub llega a 'done' (el pájaro ha terminado
+// de fundir a negro tras la cinemática de captura).
+function startPoolScene(now) {
+  mode = 'poolscene';
+  PoolScene.start(now);
 }
 
 // Corte a negro al cruzar la cueva (Talp ya derrotado): congela el mundo
@@ -250,6 +261,11 @@ function update() {
     return;
   }
 
+  if (mode === 'poolscene') {
+    PoolScene.update(performance.now());
+    return;
+  }
+
   const now = performance.now();
 
   if (deathPhase) {
@@ -275,11 +291,16 @@ function update() {
     const capturing = Bird.state === 'captured'; // cinemática final: el pájaro manda sobre la posición de Hero
     if (!capturing) {
       Player.update();
+      checkVeggieSwordHit(now, Player, smallGroundY); // primero el golpe, o el contacto lateral haría daño igualmente
+      checkVeggieCollision(now, Player, smallGroundY);
       checkBirdSwordHit(now, Player, smallGroundY); // solo parpadeo, el pájaro es invulnerable
     }
+    Veggies.update(now, Player);
     Bird.update(now, Player, smallGroundY);
     Camera.update(Player.x, CONFIG.SMALL_WORLD2.LEVEL_WIDTH);
+    Pickups.update(now, Player, smallGroundY, Camera.x, canvas.width, canvas.height); // corazones que sueltan las verduras
     if (!capturing && Player.health <= 0) startDeath(now);
+    if (Bird.captureSub === 'done') { startPoolScene(now); return; } // fundido a negro terminado -> apertura nivel 3
     return;
   }
 
@@ -351,18 +372,27 @@ function draw(t) {
     return;
   }
 
+  if (mode === 'poolscene') {
+    PoolScene.draw(ctx, t, performance.now());
+    return;
+  }
+
   const now = performance.now();
 
   if (mode === 'small2') {
     drawSmallWorld2Background(ctx, Camera.x);
+    Veggies.draw(ctx, now, Camera.x);
     Player.draw(ctx, t, smallGroundY, Camera.x);
     Bird.draw(ctx, now, Camera.x);
+    Pickups.draw(ctx, now, Camera.x); // corazones que sueltan las verduras
     drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
     drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
     if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
     drawFadeOverlay(ctx, canvas.width, canvas.height, caveTransitionAlpha(now));
-    if (Bird.captureSub === 'fade' || Bird.captureSub === 'done') {
-      drawBirdEndOverlay(ctx, now, Bird.captureStart);
+    if (Bird.captureSub === 'fade') {
+      // fundido a negro que enlaza con PoolScene (ver startPoolScene, update())
+      const alpha = Math.min(1, (now - Bird.captureStart) / CONFIG.BIRD.CAPTURE.FADE_MS);
+      drawFadeOverlay(ctx, canvas.width, canvas.height, alpha);
     }
     return;
   }
@@ -509,10 +539,15 @@ if (CONFIG.DEBUG) {
       Player.hasSword = true;
       startSmallWorld2(now);
       Player.x = CONFIG.BIRD.SPAWN_X - CONFIG.BIRD.WAKE_DISTANCE - 30;
+    } else if (e.key === 'p') {
+      // directo a la escena de la piscina (apertura nivel 3)
+      deathPhase = null;
+      caveTransition = null;
+      startPoolScene(now);
     }
   });
 
-  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva) · 0 = justo antes del pájaro');
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva) · 0 = justo antes del pájaro · p = escena de la piscina (apertura nivel 3)');
 }
 
 loadAssets(() => {

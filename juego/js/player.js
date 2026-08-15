@@ -58,6 +58,12 @@ const Player = {
     this.bracelets += amount;
   },
 
+  // Cura vida (p.ej. el corazón que sueltan las verduras al morir), sin
+  // pasarse nunca del máximo.
+  heal(amount) {
+    this.health = Math.min(CONFIG.HERO_MAX_HEALTH, this.health + amount);
+  },
+
   // Lo dispara main.js con el clic izquierdo: con espada es un tajo, sin
   // ella un golpe/puñetazo (sirve igual para romper el tallo de hierba).
   // Un cooldown evita reiniciar la pose a media animación si llegan varios

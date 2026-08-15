@@ -98,42 +98,6 @@ function drawDeathOverlay(ctx, now, deathStart) {
   ctx.restore();
 }
 
-// Pantalla final tras que el pájaro se lleve a Hero volando (ver
-// Bird.captureSub === 'fade'/'done' en bird.js): fundido a negro + título +
-// subtítulo, en el mismo estilo que el cartel provisional de nivel 2 parte 2
-// pero a pantalla completa, como cierre de la demo. No hay nada más que
-// hacer desde aquí (no reinicia ni continúa solo).
-function drawBirdEndOverlay(ctx, now, fadeStart) {
-  const D = CONFIG.BIRD.CAPTURE;
-  const alpha = Math.max(0, Math.min(1, (now - fadeStart) / D.FADE_MS));
-  if (alpha <= 0) return;
-
-  const cx = CONFIG.CANVAS_W / 2;
-  const cy = CONFIG.CANVAS_H / 2;
-
-  ctx.save();
-  ctx.fillStyle = `rgba(5, 8, 18, ${alpha})`;
-  ctx.fillRect(0, 0, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
-
-  ctx.globalAlpha = alpha;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  ctx.font = 'italic bold 40px Georgia, "Times New Roman", serif';
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-  ctx.shadowBlur = 16;
-  ctx.fillStyle = '#f3e6c8';
-  ctx.fillText("La puput se l'ha endut!", cx, cy - 22);
-
-  ctx.shadowBlur = 0;
-  ctx.font = '20px Trebuchet MS';
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
-  ctx.fillStyle = '#c9a86a';
-  ctx.fillText('Nivell 3 — pròximament', cx, cy + 28);
-  ctx.restore();
-}
-
 // Fundido a negro genérico (0 = transparente, 1 = negro sólido): lo usa la
 // travesía de la cueva para cortar a negro y volver a aparecer al otro lado.
 function drawFadeOverlay(ctx, canvasW, canvasH, alpha) {

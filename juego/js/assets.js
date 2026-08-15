@@ -2,7 +2,7 @@
 // ASSET_V se añade como query string a cada imagen para evitar que el
 // navegador sirva una versión vieja cacheada de un archivo que hemos
 // sustituido en disco (mismo nombre de archivo, contenido nuevo).
-const ASSET_V = 15;
+const ASSET_V = 20;
 function withV(path) {
   return `${path}?v=${ASSET_V}`;
 }
@@ -42,7 +42,9 @@ const ASSETS = {
   healthBar: new Image(), // barra de vida (corazón + tira), se recorta según el % de vida
   bracelet: new Image(),  // icono de pulsera para el contador de recompensas
   boar: { idle: [], move: [], turn: [], stop: [], hurt: [], death: [] },
-  bird: { stand: new Image(), attack: new Image() } // puput, jefe final del nivel 2 parte 2: mira de forma natural hacia la IZQUIERDA
+  bird: { stand: new Image(), attack: new Image(), flap: [] }, // puput, jefe final del nivel 2 parte 2: mira de forma natural hacia la IZQUIERDA. flap = ciclo real de 4 frames volando (ver CONFIG.BIRD.FLAP_FRAME_MS), usado mientras no está atacando/dormido
+  veggies: {}, // 6 enemigos-verdura del gauntlet previo al pájaro: veggies[especie] = new Image() (una sola sheet por especie, ver CONFIG.VEGGIE.SHEETS para recortar cada frame)
+  poolBg: new Image() // fondo de PoolScene (apertura nivel 3, ver CONFIG.POOL_SCENE/poolscene.js)
 };
 
 ASSETS.bg.src = withV('../Visuals/fondo%20lvl1.png');
@@ -63,6 +65,12 @@ ASSETS.talp.damage1.src = withV('../Visuals/talp/damage1.png');
 ASSETS.talp.damage2.src = withV('../Visuals/talp/damage2.png');
 ASSETS.bird.stand.src = withV('../Visuals/bird/stand.png');
 ASSETS.bird.attack.src = withV('../Visuals/bird/attack.png');
+for (let i = 0; i < 4; i++) {
+  const img = new Image();
+  img.src = withV(`../Visuals/bird/flap_${i}.png`);
+  ASSETS.bird.flap.push(img);
+}
+ASSETS.poolBg.src = withV(CONFIG.POOL_SCENE.BG_PATH);
 
 const HERO_WALK_FRAME_COUNT = 6;
 const HERO_JUMP_FRAME_COUNT = 4;
@@ -88,6 +96,13 @@ loadFrameSet(ASSETS.talp.death, 'talp', 'death', 11);
 loadFrameSet(ASSETS.worm.move, 'worm', 'move', 7);
 loadFrameSet(ASSETS.worm.jump, 'worm', 'jump', 7);
 loadFrameSet(ASSETS.worm.death, 'worm', 'death', 6);
+// Una sola imagen (sheet) por especie, en vez de 40 archivos sueltos: ver
+// CONFIG.VEGGIE.SHEETS para las coordenadas de recorte de cada frame.
+CONFIG.VEGGIE.SPECIES.forEach((species) => {
+  const img = new Image();
+  img.src = withV(`../Visuals/veggies/${species}.png`);
+  ASSETS.veggies[species] = img;
+});
 ASSETS.blai.src = withV('../Visuals/Blai_sinfondo.png');
 ASSETS.blaiShock.src = withV('../Visuals/Blai_preocupat_sinfondo.png');
 ASSETS.blaiPoint.src = withV('../Visuals/Blai_preguntant_sinfondo.png');

@@ -13,6 +13,14 @@ const Worms = {
   list: [],
 
   reset(now, groundY) {
+    // Los frames sueltos del gusano (move/jump/death) están cada uno
+    // recortado a su propio contenido (tamaños distintos entre sí, ver
+    // getScaledBox en render.js), así que hace falta un factor de escala fijo
+    // -calculado UNA vez a partir de la pose de reposo- para que el resto de
+    // frames se dibujen a su tamaño relativo real en vez de forzarlos todos a
+    // la misma altura (eso es justo lo que hacía que el gusano se viera
+    // enorme en los frames más "achatados" de la animación de morir).
+    const scale = CONFIG.WORM.HEIGHT / ASSETS.worm.rest.height;
     this.list = CONFIG.WORM.SPAWNS.map((x, i) => {
       const dir = i % 2 === 0 ? 1 : -1; // alterna: mientras uno va a la derecha, el siguiente va a la izquierda
       const restJitter = Math.random() * CONFIG.WORM.REST_MS; // ya llevan un rato "esperando" cuando arranca el tramo
@@ -21,6 +29,7 @@ const Worms = {
         baseX: x,
         groundY,
         height: CONFIG.WORM.HEIGHT,
+        scale,
         dir,
         state: 'rest',    // rest | move | hop | hurt | death
         stateStart: now - restJitter,
@@ -86,7 +95,7 @@ function wormFrameImg(worm, now) {
 // Caja de colisión en coordenadas de MUNDO (sin restar cámara).
 function getWormBox(worm, now) {
   const img = wormFrameImg(worm, now);
-  return getBox(img, worm.x, worm.groundY, worm.height);
+  return getScaledBox(img.width, img.height, worm.x, worm.groundY, worm.scale);
 }
 
 function updateWorm(worm, now) {
@@ -150,7 +159,7 @@ function drawWorm(ctx, worm, now, cameraX) {
     hopOffset = -Math.sin(t * Math.PI) * CONFIG.WORM.HOP_HEIGHT;
   }
 
-  const box = getBox(img, worm.x - cameraX, worm.groundY + hopOffset, worm.height);
+  const box = getScaledBox(img.width, img.height, worm.x - cameraX, worm.groundY + hopOffset, worm.scale);
 
   ctx.save();
   if (worm.state === 'death' && worm.deathAnimDone) {

@@ -10,6 +10,27 @@ function getBox(img, centerX, groundYPos, height) {
   return { x, y, w, h };
 }
 
+// Igual que getBox, pero para un frame CUYA IMAGEN YA ESTÁ RECORTADA a su
+// contenido real (sin margen transparente alrededor): un frame recortado
+// dentro de una sheet compartida (ver CONFIG.VEGGIE.SHEETS/ASSETS.veggies),
+// o directamente un archivo PNG individual ya recortado (p.ej. los frames
+// sueltos del gusano, ASSETS.worm.*). A diferencia de getBox, NO fuerza cada
+// frame a ocupar siempre la misma altura: si el ancho/alto de cada frame
+// varía porque cada uno se recortó a su propio contenido, forzar la altura
+// haría que un frame más "achatado" (p.ej. al morir/aplastarse) se viera
+// GIGANTE en vez de más pequeño, porque su ratio ancho/alto es distinto. En
+// su lugar se aplica un único factor de escala (px de la imagen -> px de
+// mundo, calculado una vez a partir de un frame de referencia, p.ej. la pose
+// de pie/reposo) igual para todos los frames, así el tamaño relativo entre
+// poses se respeta.
+function getScaledBox(frameW, frameH, centerX, groundYPos, scale) {
+  const w = frameW * scale;
+  const h = frameH * scale;
+  const x = centerX - w / 2;
+  const y = groundYPos - h;
+  return { x, y, w, h };
+}
+
 // Dibuja el sprite simulando un ciclo de andar: separa el cuerpo (torso+cabeza)
 // de las piernas, y gira cada mitad de piernas alrededor de la cadera como un
 // compás, ya que solo tenemos una pose estática de cada personaje (sin frames
