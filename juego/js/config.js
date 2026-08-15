@@ -503,8 +503,55 @@ const CONFIG = {
     TELEPORT_BEAM_MS: 700,
     TELEPORT_HIDE_FRACTION: 0.42, // instante (0-1) del haz en el que el personaje desaparece
     TELEPORT_EMPTY_MS: 2000,
-    END_FADE_MS: 900,
     LINE: "Ostres, l'aigua m'ha fet creixer de nou! A veure si trobo al mag dels collons!"
+  },
+
+  // Escena de las oficinas de Infordisa (nivel 3, parte 2 - ver
+  // officescene.js): arranca justo cuando PoolScene llega a su fase 'done'
+  // (ver startOfficeScene en main.js). Hero y Mac aparecen con el mismo haz
+  // de luz que cierra PoolScene (pero a la inversa: se materializan en vez
+  // de desaparecer), Mac se despide porque nota "massa màgia" para él y se
+  // teletransporta fuera, y entonces entra caminando Big Bross, que pide
+  // ayuda porque la màgia se le ha ido de las manos. Escena fija (cameraX=0).
+  // ASSETS.bigBross es un PLACEHOLDER (silueta de mago genérica) hasta que
+  // Randu pase el sprite real - solo hace falta cambiar BG/sprite, la
+  // lógica de la escena ya está lista para el diseño definitivo.
+  OFFICE_SCENE: {
+    BG_PATH: '../Visuals/level3/oficinas.jpg',
+    GROUND_Y: 410, // línea del suelo (baldosa), calibrada a ojo con una rejilla de referencia sobre oficinas.jpg (960x540)
+
+    // Aparecen en la zona de baldosa despejada frente al despacho de
+    // cristal (izquierda de la imagen): más a la derecha se cruza con el
+    // mostrador rojo y las mesas de trabajo, y los personajes "flotarían"
+    // encima de esos muebles al no haber ordenación por profundidad.
+    HERO_X: 260,
+    HERO_HEIGHT: 155, // = HERO_HEIGHT_CUTSCENE, la altura "normal" de Hero fuera de jugabilidad
+    MAC_X: 360,
+    MAC_HEIGHT: 165,
+
+    // Llegada (haz de luz, mismo aspecto que el de PoolScene): aparecen
+    // juntos, se revelan en el tramo brillante del haz, y tras una pequeña
+    // pausa arranca el diálogo de despedida de Mac.
+    ARRIVE_BEAM_MS: 700,
+    ARRIVE_REVEAL_FRACTION: 0.42,
+    POST_ARRIVE_PAUSE_MS: 400,
+
+    // Salida de Mac (mismo mecanismo que el teletransporte final de PoolScene).
+    MAC_EXIT_BEAM_MS: 700,
+    MAC_EXIT_HIDE_FRACTION: 0.42,
+    POST_MAC_EXIT_PAUSE_MS: 350,
+
+    // Entrada de Big Bross: camina desde fuera de pantalla (derecha) hasta
+    // su punto de parada, con el mismo bamboleo de "andar" que ya usa Mac.
+    // Se para junto a la columna, justo antes del mostrador rojo (zona de
+    // baldosa despejada), cerca de Hero/Mac sin superponerse a los muebles.
+    BIG_BROSS_HEIGHT: 175,
+    BIG_BROSS_ENTRY_X: 1040,
+    BIG_BROSS_STOP_X: 450,
+    BIG_BROSS_WALK_SPEED: 1.6,
+    BIG_BROSS_HIP_FRACTION: 0.55,
+
+    END_FADE_MS: 900
   },
 
   // --- Cinemática inicial (caída del meteorito) ---

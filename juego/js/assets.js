@@ -2,7 +2,7 @@
 // ASSET_V se añade como query string a cada imagen para evitar que el
 // navegador sirva una versión vieja cacheada de un archivo que hemos
 // sustituido en disco (mismo nombre de archivo, contenido nuevo).
-const ASSET_V = 20;
+const ASSET_V = 21;
 function withV(path) {
   return `${path}?v=${ASSET_V}`;
 }
@@ -44,7 +44,9 @@ const ASSETS = {
   boar: { idle: [], move: [], turn: [], stop: [], hurt: [], death: [] },
   bird: { stand: new Image(), attack: new Image(), flap: [] }, // puput, jefe final del nivel 2 parte 2: mira de forma natural hacia la IZQUIERDA. flap = ciclo real de 4 frames volando (ver CONFIG.BIRD.FLAP_FRAME_MS), usado mientras no está atacando/dormido
   veggies: {}, // 6 enemigos-verdura del gauntlet previo al pájaro: veggies[especie] = new Image() (una sola sheet por especie, ver CONFIG.VEGGIE.SHEETS para recortar cada frame)
-  poolBg: new Image() // fondo de PoolScene (apertura nivel 3, ver CONFIG.POOL_SCENE/poolscene.js)
+  poolBg: new Image(), // fondo de PoolScene (apertura nivel 3, ver CONFIG.POOL_SCENE/poolscene.js)
+  officeBg: new Image(), // fondo de OfficeScene (oficinas de Infordisa, ver CONFIG.OFFICE_SCENE/officescene.js)
+  bigBross: new Image() // PLACEHOLDER (ver officescene.js) hasta que Randu pase el sprite real de Big Bross
 };
 
 ASSETS.bg.src = withV('../Visuals/fondo%20lvl1.png');
@@ -71,6 +73,8 @@ for (let i = 0; i < 4; i++) {
   ASSETS.bird.flap.push(img);
 }
 ASSETS.poolBg.src = withV(CONFIG.POOL_SCENE.BG_PATH);
+ASSETS.officeBg.src = withV(CONFIG.OFFICE_SCENE.BG_PATH);
+ASSETS.bigBross.src = withV('../Visuals/bigbross_placeholder_sinfondo.png');
 
 const HERO_WALK_FRAME_COUNT = 6;
 const HERO_JUMP_FRAME_COUNT = 4;

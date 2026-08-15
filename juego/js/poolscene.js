@@ -74,7 +74,6 @@ const PoolScene = {
   phaseStart: 0,
   birdX: 0,
   dropY: 0,
-  fadeAlpha: 0,
   hopStartX: 0, // Player.x al empezar el salto (ver fase 'hop')
   groundY: 0,   // "suelo" actual de Player/Mac: WATER_GROUND_Y hasta el salto, DECK_GROUND_Y después
 
@@ -98,7 +97,6 @@ const PoolScene = {
     this.phaseStart = now;
     this.birdX = C.BIRD_ENTRY_X;
     this.dropY = C.DROP_Y_START;
-    this.fadeAlpha = 0;
     this.dialogueIndex = 0;
     this.dialogueStart = 0;
     this.dialogueRevealCount = 0;
@@ -251,10 +249,11 @@ const PoolScene = {
         this._setPhase(now, 'empty');
       }
     } else if (this.phase === 'empty') {
-      // Escena vacía (solo el fondo) un par de segundos antes de la tarjeta final.
-      if (elapsed >= C.TELEPORT_EMPTY_MS) this._setPhase(now, 'end');
-    } else if (this.phase === 'end') {
-      this.fadeAlpha = Math.min(1, this.fadeAlpha + 16.7 / C.END_FADE_MS);
+      // Escena vacía (solo el fondo) un par de segundos antes de pasar a la
+      // escena de las oficinas (ver 'done' -> startOfficeScene en main.js;
+      // la tarjeta "Continuarà..." ya no se muestra aquí, se ha movido al
+      // final de OfficeScene).
+      if (elapsed >= C.TELEPORT_EMPTY_MS) this._setPhase(now, 'done');
     }
 
     Particles.update(16.7);
@@ -360,30 +359,7 @@ const PoolScene = {
       this.dialogueTotalChars = result.totalChars;
       drawPressHint(ctx, 'E per avançar', CONFIG.CANVAS_W, CONFIG.CANVAS_H, t);
     }
-
-    if (this.phase === 'end') {
-      ctx.save();
-      ctx.fillStyle = `rgba(5, 8, 18, ${this.fadeAlpha})`;
-      ctx.fillRect(0, 0, CONFIG.CANVAS_W, CONFIG.CANVAS_H);
-
-      ctx.globalAlpha = this.fadeAlpha;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const cx = CONFIG.CANVAS_W / 2, cy = CONFIG.CANVAS_H / 2;
-
-      ctx.font = 'italic bold 40px Georgia, "Times New Roman", serif';
-      if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-      ctx.shadowBlur = 16;
-      ctx.fillStyle = '#f3e6c8';
-      ctx.fillText('Continuarà...', cx, cy - 22);
-
-      ctx.shadowBlur = 0;
-      ctx.font = '20px Trebuchet MS';
-      if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
-      ctx.fillStyle = '#c9a86a';
-      ctx.fillText('Gràcies per jugar la demo!', cx, cy + 28);
-      ctx.restore();
-    }
+    // fase 'done': no se dibuja nada más (pantalla vacía); main.js detecta
+    // este phase y arranca OfficeScene (ver startOfficeScene).
   }
 };

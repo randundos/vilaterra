@@ -8,7 +8,7 @@ ctx.imageSmoothingEnabled = false;
 const groundY = CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO;
 const smallGroundY = CONFIG.CANVAS_H * CONFIG.SMALL_WORLD.GROUND_Y_RATIO;
 
-let mode = 'cutscene'; // 'cutscene' | 'gameplay' | 'small' | 'small2' (al otro lado de la cueva) | 'poolscene' (apertura nivel 3, ver poolscene.js)
+let mode = 'cutscene'; // 'cutscene' | 'gameplay' | 'small' | 'small2' (al otro lado de la cueva) | 'poolscene' (apertura nivel 3, ver poolscene.js) | 'officescene' (oficinas de Infordisa, ver officescene.js)
 
 // Escena "Mac rocía a Hero con la manguera" tras el diálogo de encuentro:
 // null | 'spraying' (rociando un momento antes de encoger) | 'shrinking' | 'done'
@@ -32,6 +32,8 @@ Input.onAction = () => {
     Cutscene.handleAction(now);
   } else if (mode === 'poolscene') {
     PoolScene.handleAction(now);
+  } else if (mode === 'officescene') {
+    OfficeScene.handleAction(now);
   } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && ItemPopup.active) {
     ItemPopup.dismiss();
   } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && Dialogue.active) {
@@ -143,6 +145,14 @@ function startSmallWorld2(now) {
 function startPoolScene(now) {
   mode = 'poolscene';
   PoolScene.start(now);
+}
+
+// Arranca la escena de las oficinas de Infordisa (ver officescene.js): la
+// dispara update() en cuanto PoolScene.phase llega a 'done' (pantalla vacía
+// tras el teletransporte final de Hero+Mac).
+function startOfficeScene(now) {
+  mode = 'officescene';
+  OfficeScene.start(now);
 }
 
 // Corte a negro al cruzar la cueva (Talp ya derrotado): congela el mundo
@@ -262,7 +272,14 @@ function update() {
   }
 
   if (mode === 'poolscene') {
-    PoolScene.update(performance.now());
+    const nowPS = performance.now();
+    PoolScene.update(nowPS);
+    if (PoolScene.phase === 'done') { startOfficeScene(nowPS); return; } // pantalla vacía terminada -> oficinas de Infordisa
+    return;
+  }
+
+  if (mode === 'officescene') {
+    OfficeScene.update(performance.now());
     return;
   }
 
@@ -374,6 +391,11 @@ function draw(t) {
 
   if (mode === 'poolscene') {
     PoolScene.draw(ctx, t, performance.now());
+    return;
+  }
+
+  if (mode === 'officescene') {
+    OfficeScene.draw(ctx, t, performance.now());
     return;
   }
 
@@ -544,10 +566,15 @@ if (CONFIG.DEBUG) {
       deathPhase = null;
       caveTransition = null;
       startPoolScene(now);
+    } else if (e.key === 'o') {
+      // directo a la escena de las oficinas de Infordisa (nivel 3, parte 2)
+      deathPhase = null;
+      caveTransition = null;
+      startOfficeScene(now);
     }
   });
 
-  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva) · 0 = justo antes del pájaro · p = escena de la piscina (apertura nivel 3)');
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva) · 0 = justo antes del pájaro · p = escena de la piscina (apertura nivel 3) · o = escena de las oficinas de Infordisa');
 }
 
 loadAssets(() => {
