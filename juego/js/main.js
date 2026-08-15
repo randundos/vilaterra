@@ -21,7 +21,7 @@ let macSprayNextParticle = 0;
 let deathPhase = null;
 let deathStart = 0;
 
-Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && !Dialogue.active && !macSprayPhase && !deathPhase && !ItemPopup.active) Player.jump(); };
+Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && !Dialogue.active && !macSprayPhase && !deathPhase && !ItemPopup.active && Bird.state !== 'captured') Player.jump(); };
 // tecla E: en la cinemática avanza el diálogo/la escena; en jugabilidad, si
 // hay un aviso de objeto conseguido lo cierra (prioridad máxima), si no hay
 // un diálogo en pantalla lo avanza, y si no, ataca (antes era el clic
@@ -34,7 +34,7 @@ Input.onAction = () => {
     ItemPopup.dismiss();
   } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && Dialogue.active) {
     Dialogue.advance(now);
-  } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && !macSprayPhase && !deathPhase) {
+  } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && !macSprayPhase && !deathPhase && Bird.state !== 'captured') {
     Player.attack(now);
   }
 };
@@ -131,6 +131,7 @@ function startSmallWorld2(now) {
 
   Pickups.items = [];
   Camera.reset();
+  Bird.init(now, smallGroundY);
 }
 
 // Corte a negro al cruzar la cueva (Talp ya derrotado): congela el mundo
@@ -226,7 +227,7 @@ function startDeath(now) {
 
 function updateDeathScene(now) {
   if (now - deathStart < CONFIG.DEATH.DURATION_MS) return;
-  const diedInSmallWorld = mode === 'small' || mode === 'small2'; // morir en la parte 2 (aún sin peligros) también reinicia el tramo desde el principio
+  const diedInSmallWorld = mode === 'small' || mode === 'small2'; // morir a manos del pájaro en la parte 2 también reinicia el tramo entero desde el principio (parte 1, con Talp incluido)
   deathPhase = null;
   if (diedInSmallWorld) {
     restartSmallWorld(now);
@@ -271,9 +272,14 @@ function update() {
   }
 
   if (mode === 'small2') {
-    Player.update();
+    const capturing = Bird.state === 'captured'; // cinemática final: el pájaro manda sobre la posición de Hero
+    if (!capturing) {
+      Player.update();
+      checkBirdSwordHit(now, Player, smallGroundY); // solo parpadeo, el pájaro es invulnerable
+    }
+    Bird.update(now, Player, smallGroundY);
     Camera.update(Player.x, CONFIG.SMALL_WORLD2.LEVEL_WIDTH);
-    if (Player.health <= 0) startDeath(now);
+    if (!capturing && Player.health <= 0) startDeath(now);
     return;
   }
 
@@ -349,12 +355,15 @@ function draw(t) {
 
   if (mode === 'small2') {
     drawSmallWorld2Background(ctx, Camera.x);
-    drawComingSoonSign(ctx, Camera.x, smallGroundY, CONFIG.SMALL_WORLD2.SIGN_X);
     Player.draw(ctx, t, smallGroundY, Camera.x);
+    Bird.draw(ctx, now, Camera.x);
     drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
     drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
     if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
     drawFadeOverlay(ctx, canvas.width, canvas.height, caveTransitionAlpha(now));
+    if (Bird.captureSub === 'fade' || Bird.captureSub === 'done') {
+      drawBirdEndOverlay(ctx, now, Bird.captureStart);
+    }
     return;
   }
 
@@ -491,10 +500,19 @@ if (CONFIG.DEBUG) {
       Talp.defeated = true;
       Player.hasSword = true;
       startSmallWorld2(now);
+    } else if (e.key === '0') {
+      // justo antes del pájaro, en nivel 2 parte 2
+      deathPhase = null;
+      caveTransition = null;
+      startSmallWorld(now);
+      Talp.defeated = true;
+      Player.hasSword = true;
+      startSmallWorld2(now);
+      Player.x = CONFIG.BIRD.SPAWN_X - CONFIG.BIRD.WAKE_DISTANCE - 30;
     }
   });
 
-  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva)');
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva) · 0 = justo antes del pájaro');
 }
 
 loadAssets(() => {

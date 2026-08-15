@@ -2,7 +2,7 @@
 // ASSET_V se añade como query string a cada imagen para evitar que el
 // navegador sirva una versión vieja cacheada de un archivo que hemos
 // sustituido en disco (mismo nombre de archivo, contenido nuevo).
-const ASSET_V = 14;
+const ASSET_V = 15;
 function withV(path) {
   return `${path}?v=${ASSET_V}`;
 }
@@ -41,7 +41,8 @@ const ASSETS = {
   macSpray: new Image(), // Mac con la manguera, rociando agua sobre Hero
   healthBar: new Image(), // barra de vida (corazón + tira), se recorta según el % de vida
   bracelet: new Image(),  // icono de pulsera para el contador de recompensas
-  boar: { idle: [], move: [], turn: [], stop: [], hurt: [], death: [] }
+  boar: { idle: [], move: [], turn: [], stop: [], hurt: [], death: [] },
+  bird: { stand: new Image(), attack: new Image() } // puput, jefe final del nivel 2 parte 2: mira de forma natural hacia la IZQUIERDA
 };
 
 ASSETS.bg.src = withV('../Visuals/fondo%20lvl1.png');
@@ -60,6 +61,8 @@ ASSETS.worm.rest.src = withV('../Visuals/worm/rest.png');
 ASSETS.talp.attack1.src = withV('../Visuals/talp/attack1.png');
 ASSETS.talp.damage1.src = withV('../Visuals/talp/damage1.png');
 ASSETS.talp.damage2.src = withV('../Visuals/talp/damage2.png');
+ASSETS.bird.stand.src = withV('../Visuals/bird/stand.png');
+ASSETS.bird.attack.src = withV('../Visuals/bird/attack.png');
 
 const HERO_WALK_FRAME_COUNT = 6;
 const HERO_JUMP_FRAME_COUNT = 4;

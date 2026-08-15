@@ -301,13 +301,55 @@ const CONFIG = {
   },
 
   // --- Nivel 2, parte 2: al otro lado de la cueva ---
-  // Zona provisional (mismo estilo visual que SMALL_WORLD, sin agujeros,
-  // plataformas ni enemigos todavía): sirve para que la travesía de la
-  // cueva funcione de punta a punta ya mismo; se irá rellenando más adelante.
+  // Mismo estilo visual que SMALL_WORLD (sin agujeros ni plataformas), con
+  // el pájaro (ver BIRD) esperando hacia el final: al derrotarlo... en
+  // realidad al revés, es él quien "gana" la pelea y se lleva a Hero
+  // volando, dando paso a la pantalla de "pròximament" (ver drawBirdEndOverlay).
   SMALL_WORLD2: {
     LEVEL_WIDTH: 1000,
-    GROUND_Y_RATIO: 0.85,
-    SIGN_X: 650 // cartel de "próximamente" cerca del final, mientras no haya más contenido
+    GROUND_Y_RATIO: 0.85
+  },
+
+  // Pájaro (puput): jefe final del nivel 2 parte 2. A diferencia de Talp, NO
+  // se le puede derrotar: el combate es real (Hero puede moverse/saltar y
+  // atacar con espada, y el pájaro reacciona con un breve parpadeo al
+  // golpe), pero el pájaro está pensado para acabar aterrizando sus propios
+  // ataques sí o sí. Cada ataque que conecta hace daño normal a Hero (igual
+  // que cualquier otro enemigo, con riesgo real de "Has Fallat" si la vida
+  // llega a 0 antes); al conectar el 7º golpe (HITS_TO_CAPTURE), en vez de
+  // seguir atacando agarra a Hero y se lo lleva volando (ver CAPTURE más
+  // abajo y Bird.updateCapture en bird.js), terminando en la pantalla
+  // "pròximament" (nivell 3). Solo tenemos dos poses reales (de pie/en vuelo
+  // y picoteando/atacando), sin ciclo de vuelo propio, así que "active" usa
+  // un ligero balanceo (HOVER_*) para dar sensación de que planea.
+  BIRD: {
+    HEIGHT: 130,
+    SPAWN_X: 560,
+    WAKE_DISTANCE: 260,
+    HOVER_AMPLITUDE: 8,   // balanceo vertical mientras vuela/persigue, para simular aleteo sin frames propios
+    HOVER_SPEED: 0.0022,
+    SPEED: 2.6,
+    ATTACK_RANGE: 140,
+    HIT_RANGE: 165,
+    ATTACK_COOLDOWN_MS: 1300,
+    ATTACK_DURATION_MS: 420,
+    ATTACK_HIT_FRACTION: 0.6,
+    HITS_TO_CAPTURE: 7,
+    CHASE_LEASH: 900,     // prácticamente todo el tramo: no se rinde
+    FLINCH_MS: 150,       // parpadeo al recibir un golpe de Hero (no le hace nada más, es invulnerable)
+
+    // Secuencia final, una vez conecta el 7º golpe: se posa junto a Hero y
+    // lo agarra (grab), sube en vertical con él (rise), se aleja volando
+    // hacia fuera de la pantalla (exit) y funde a negro (fade) antes de
+    // dejar fija la pantalla "pròximament" (ver drawBirdEndOverlay en ui.js).
+    CAPTURE: {
+      GRAB_MS: 350,
+      RISE_MS: 900,
+      RISE_DISTANCE: 260,
+      EXIT_MS: 700,
+      EXIT_SPEED: 8,
+      FADE_MS: 600
+    }
   },
 
   // --- Cinemática inicial (caída del meteorito) ---

@@ -247,37 +247,6 @@ function drawSmallWorld2Background(ctx, cameraX) {
   drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
 }
 
-// Cartel de madera sencillo (placeholder) avisando de que, por ahora, el
-// nivel acaba aquí: evita que llegar al final de la zona provisional se
-// sienta como un error en vez de "aún no hay más".
-function drawComingSoonSign(ctx, cameraX, groundY, worldX) {
-  const screenX = worldX - cameraX;
-  if (screenX < -140 || screenX > CONFIG.CANVAS_W + 140) return;
-
-  const postW = 10, postH = 90;
-  const boardW = 230, boardH = 66;
-  const boardBottomY = groundY - postH;
-
-  ctx.save();
-  ctx.fillStyle = '#6b4a2b';
-  ctx.fillRect(screenX - postW / 2, groundY - postH, postW, postH);
-
-  ctx.fillStyle = '#8a6238';
-  ctx.strokeStyle = '#3f2a16';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.roundRect(screenX - boardW / 2, boardBottomY - boardH + 12, boardW, boardH, 6);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = '#2b1c0f';
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 15px Trebuchet MS';
-  ctx.fillText("Més enllà de la cova...", screenX, boardBottomY - boardH / 2 + 4);
-  ctx.font = '13px Trebuchet MS';
-  ctx.fillText('(pròximament)', screenX, boardBottomY - boardH / 2 + 24);
-  ctx.restore();
-}
 
 // Parte un texto en líneas que quepan en maxWidth (con el ctx.font ya puesto).
 function wrapText(ctx, text, maxWidth) {

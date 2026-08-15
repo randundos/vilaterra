@@ -4,29 +4,35 @@
 // matan saltándoles encima o con la espada, igual que el resto. Worms.list
 // guarda varias instancias con el mismo comportamiento (una por cada
 // CONFIG.WORM.SPAWNS), colocadas lo bastante cerca entre sí como para poder
-// solaparse. "rest" es una única pose quieta; move/jump/death son ciclos
-// reales de varios frames (ver ASSETS.worm), *_FRAME_MS es la duración de
-// cada frame.
+// solaparse. Van cada uno a su aire: dirección inicial alternada (para que
+// no vayan todos al mismo lado a la vez) y una fase de tiempo distinta (para
+// que no anden/salten todos sincronizados). "rest" es una única pose quieta;
+// move/jump/death son ciclos reales de varios frames (ver ASSETS.worm),
+// *_FRAME_MS es la duración de cada frame.
 const Worms = {
   list: [],
 
   reset(now, groundY) {
-    this.list = CONFIG.WORM.SPAWNS.map((x) => ({
-      x,
-      baseX: x,
-      groundY,
-      height: CONFIG.WORM.HEIGHT,
-      dir: 1,           // 1 = hacia la derecha, -1 = hacia la izquierda
-      state: 'rest',    // rest | move | hop | hurt | death
-      stateStart: now,
-      hopStart: 0,
-      nextHopAt: now + CONFIG.WORM.HOP_EVERY_MS,
-      alive: true,
-      active: true,
-      deathAnimDone: false,
-      fadeStart: 0,
-      fadeAlpha: 1
-    }));
+    this.list = CONFIG.WORM.SPAWNS.map((x, i) => {
+      const dir = i % 2 === 0 ? 1 : -1; // alterna: mientras uno va a la derecha, el siguiente va a la izquierda
+      const restJitter = Math.random() * CONFIG.WORM.REST_MS; // ya llevan un rato "esperando" cuando arranca el tramo
+      return {
+        x,
+        baseX: x,
+        groundY,
+        height: CONFIG.WORM.HEIGHT,
+        dir,
+        state: 'rest',    // rest | move | hop | hurt | death
+        stateStart: now - restJitter,
+        hopStart: 0,
+        nextHopAt: now + CONFIG.WORM.HOP_EVERY_MS * (0.4 + Math.random() * 0.8), // saltitos también desfasados
+        alive: true,
+        active: true,
+        deathAnimDone: false,
+        fadeStart: 0,
+        fadeAlpha: 1
+      };
+    });
   },
 
   update(now) {
