@@ -489,8 +489,20 @@ const CONFIG = {
     HOP_MS: 420,
     HOP_HEIGHT: 55,
     HOP_X_OFFSET: 180,
-    WALK_SPEED: 2.2,
-    WALK_EXIT_X: 1040,      // sale de pantalla por la derecha, hacia el jardín
+    // Mac Arrons se teletransporta a la escena a mitad del diálogo (ver
+    // POOL_DIALOGUE en poolscene.js): reutiliza su sprite normal (ASSETS.mac)
+    // a la misma altura que en el nivel 1, ya que por casualidad coincide
+    // con la de Hero en esta escena (165).
+    MAC_X: 620,
+    MAC_HEIGHT: 165,
+    MAC_APPEAR_MS: 260,      // "pop" rápido al aparecer (ver spawnTeleport)
+    // Teletransporte final (ver drawTeleportBeam en poolscene.js): un haz de
+    // luz vertical flashea sobre Hero/Mac, el personaje desaparece de golpe
+    // en el punto más brillante (nada de encogerse), el haz se apaga, y la
+    // escena se queda vacía un rato antes de la tarjeta final.
+    TELEPORT_BEAM_MS: 700,
+    TELEPORT_HIDE_FRACTION: 0.42, // instante (0-1) del haz en el que el personaje desaparece
+    TELEPORT_EMPTY_MS: 2000,
     END_FADE_MS: 900,
     LINE: "Ostres, l'aigua m'ha fet creixer de nou! A veure si trobo al mag dels collons!"
   },

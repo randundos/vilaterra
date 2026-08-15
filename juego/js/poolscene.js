@@ -4,23 +4,93 @@
 // antigua pantalla estática "pròximament": el pájaro, ahora mucho más pequeño
 // que en el combate, cruza el cielo sobre una piscina y deja caer un bulto
 // diminuto (no se distingue bien qué es) que, al tocar el agua, crece de
-// golpe -> es Hero. Suelta una línea, y se va andando hacia el jardín,
-// cerrando la demo con una tarjeta final. Escena fija, sin scroll (cameraX=0
-// siempre), reutiliza el propio objeto Player para la parte de Hero (mismo
-// patrón que Cutscene con la cinemática inicial).
+// golpe -> es Hero. Sale de un salto del agua, y entonces Mac Arrons (ya
+// establecido como "un mag" en la escena de la manguera, nivel 1) se
+// teletransporta a la escena: charla con Hero, y al final los dos
+// desaparecen juntos, cerrando la demo con una tarjeta final. Escena fija,
+// sin scroll (cameraX=0 siempre), reutiliza los propios objetos Player/Mac
+// (mismo patrón que Cutscene con la cinemática inicial).
+const POOL_DIALOGUE = [
+  { speaker: 'hero', text: "Ostres, l'aigua m'ha fet creixer de nou! A veure si trobo al mag dels collons!" },
+  { speaker: 'mac', text: 'Em cridaves?' },
+  { speaker: 'mac', text: "Ep, com has crescut tu? Has caigut a l'aigua de la piscina??!" },
+  { speaker: 'hero', text: 'Sí! I ara me les pagaràs!' },
+  { speaker: 'mac', text: 'Espera, si us plau!' },
+  { speaker: 'mac', text: "Has d'anar a l'església de Sant Joan, oi? Necessitaràs màgia per entrar. Jo t'en ensenyaré, t'ho juro!" },
+  { speaker: 'hero', text: "Hm... T'escolto..." },
+  { speaker: 'mac', text: 'Som-hi doncs!' }
+];
+
+// Envolvente de brillo del haz de luz del teletransporte: t es el progreso
+// (0..1) dentro de su duración total. Sube rápido, se mantiene brillante un
+// rato, y baja; el personaje desaparece justo en el tramo alto (ver
+// CONFIG.POOL_SCENE.TELEPORT_HIDE_FRACTION).
+function _beamEnvelope(t) {
+  if (t < 0.18) return t / 0.18;
+  if (t < 0.55) return 1;
+  return Math.max(0, 1 - (t - 0.55) / 0.45);
+}
+
+// Haz de luz vertical (blanco -> morado -> dorado, a juego con las chispas
+// mágicas) que converge desde arriba hacia los pies del personaje, con un
+// destello ovalado en la base. Se dibuja con "lighter" para que brille de
+// verdad sobre el fondo, en vez de una simple mancha translúcida.
+function drawTeleportBeam(ctx, cx, baseY, alpha) {
+  if (alpha <= 0.01) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  const topY = -60;
+  const width = 34;
+  const beamGrad = ctx.createLinearGradient(cx, topY, cx, baseY);
+  beamGrad.addColorStop(0, 'rgba(255,255,255,0)');
+  beamGrad.addColorStop(0.18, `rgba(255,255,255,${0.85 * alpha})`);
+  beamGrad.addColorStop(0.55, `rgba(196,150,255,${0.75 * alpha})`);
+  beamGrad.addColorStop(1, `rgba(255,212,71,${0.85 * alpha})`);
+  ctx.fillStyle = beamGrad;
+  ctx.beginPath();
+  ctx.moveTo(cx - width * 0.14, topY);
+  ctx.lineTo(cx + width * 0.14, topY);
+  ctx.lineTo(cx + width * 0.55, baseY);
+  ctx.lineTo(cx - width * 0.55, baseY);
+  ctx.closePath();
+  ctx.fill();
+
+  const glowR = 40;
+  const glowGrad = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, glowR);
+  glowGrad.addColorStop(0, `rgba(255,255,255,${0.95 * alpha})`);
+  glowGrad.addColorStop(0.5, `rgba(214,180,255,${0.55 * alpha})`);
+  glowGrad.addColorStop(1, 'rgba(214,180,255,0)');
+  ctx.fillStyle = glowGrad;
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY, glowR, glowR * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 const PoolScene = {
-  phase: 'flyIn', // flyIn | hover | drop | splash | grow | hop | dialogue | walkAway | end
+  phase: 'flyIn', // flyIn | hover | drop | splash | grow | hop | dialogue | teleportOut | empty | end
   phaseStart: 0,
   birdX: 0,
   dropY: 0,
   fadeAlpha: 0,
   hopStartX: 0, // Player.x al empezar el salto (ver fase 'hop')
-  groundY: 0,   // "suelo" actual de Player: WATER_GROUND_Y hasta el salto, DECK_GROUND_Y después
+  groundY: 0,   // "suelo" actual de Player/Mac: WATER_GROUND_Y hasta el salto, DECK_GROUND_Y después
 
-  // --- diálogo (máquina de escribir, mismo patrón que Cutscene) ---
+  // --- diálogo (máquina de escribir + cola de líneas, mismo patrón que
+  // Cutscene, pero con dos interlocutores: Hero y Mac) ---
+  dialogueIndex: 0,
+  dialogueStart: 0,
   dialogueRevealCount: 0,
   dialogueTotalChars: 0,
   dialogueFullyShown: false,
+
+  // --- Mac Arrons (aparece a mitad del diálogo, teletransportado) ---
+  macVisible: false,
+  macAppearAt: 0,   // para el "pop" de aparición (ver _drawMac)
+  macBeamStart: 0,  // para el haz de luz de su llegada (ver draw)
+  macBox: null,     // se guarda cada frame para anclar su bocadillo de diálogo
 
   start(now) {
     const C = CONFIG.POOL_SCENE;
@@ -29,9 +99,15 @@ const PoolScene = {
     this.birdX = C.BIRD_ENTRY_X;
     this.dropY = C.DROP_Y_START;
     this.fadeAlpha = 0;
+    this.dialogueIndex = 0;
+    this.dialogueStart = 0;
     this.dialogueRevealCount = 0;
     this.dialogueTotalChars = 0;
     this.dialogueFullyShown = false;
+    this.macVisible = false;
+    this.macAppearAt = 0;
+    this.macBeamStart = 0;
+    this.macBox = null;
     Particles.clear();
 
     Player.visible = true;
@@ -53,16 +129,55 @@ const PoolScene = {
     this.phaseStart = now;
   },
 
-  // Tecla E: solo hace algo durante el diálogo (revelar de golpe / avanzar),
-  // igual que Cutscene.handleAction.
+  _startLine(now, index) {
+    this.dialogueIndex = index;
+    this.dialogueStart = now;
+    this.dialogueRevealCount = 0;
+    this.dialogueTotalChars = 0;
+    this.dialogueFullyShown = false;
+  },
+
+  // Tecla E: revela la línea de golpe, o pasa a la siguiente (con algún
+  // efecto especial fijado por índice: aparición de Mac, gesto de ataque de
+  // Hero, y el teletransporte final de los dos al acabar la cola).
   handleAction(now) {
     if (this.phase !== 'dialogue') return;
+    const C = CONFIG.POOL_SCENE;
+
     if (!this.dialogueFullyShown) {
       this.dialogueRevealCount = this.dialogueTotalChars || 9999;
       this.dialogueFullyShown = true;
       return;
     }
-    this._setPhase(now, 'walkAway');
+
+    const justFinished = this.dialogueIndex;
+    const nextIndex = justFinished + 1;
+
+    if (justFinished === 0) {
+      // Hero acaba de decir que busca al mag -> Mac llega envuelto en un haz
+      // de luz (ver drawTeleportBeam en draw()), con chispas mágicas
+      // moradas/doradas de acompañamiento.
+      this.macVisible = true;
+      this.macAppearAt = now;
+      this.macBeamStart = now;
+      spawnTeleport(C.MAC_X, this.groundY - C.MAC_HEIGHT * 0.5);
+    } else if (justFinished === 3) {
+      // "Sí! I ara me les pagaràs!" -> Hero se planta con intención de pegarle
+      Player.attack(now);
+    }
+
+    if (nextIndex >= POOL_DIALOGUE.length) {
+      // Los dos desaparecen juntos envueltos en un haz de luz (ver
+      // drawTeleportBeam / fase 'teleportOut' más abajo): nada de encogerse,
+      // desaparecen de golpe en el punto más brillante del haz. Después la
+      // escena se queda vacía un momento (fase 'empty') antes de la tarjeta final.
+      spawnTeleport(Player.x, this.groundY - Player.height * 0.5);
+      spawnTeleport(C.MAC_X, this.groundY - C.MAC_HEIGHT * 0.5);
+      this._setPhase(now, 'teleportOut');
+      return;
+    }
+
+    this._startLine(now, nextIndex);
   },
 
   update(now) {
@@ -114,25 +229,72 @@ const PoolScene = {
         Player.vy = 0;
         Player.grounded = true;
         this.groundY = C.DECK_GROUND_Y;
+        this._startLine(now, 0);
         this._setPhase(now, 'dialogue');
       }
     } else if (this.phase === 'dialogue') {
       if (!this.dialogueFullyShown) {
-        this.dialogueRevealCount = Math.floor(elapsed / CONFIG.CUTSCENE.TYPE_MS_PER_CHAR);
+        const dElapsed = now - this.dialogueStart;
+        this.dialogueRevealCount = Math.floor(dElapsed / CONFIG.CUTSCENE.TYPE_MS_PER_CHAR);
         if (this.dialogueTotalChars && this.dialogueRevealCount >= this.dialogueTotalChars) {
           this.dialogueFullyShown = true;
         }
       }
-    } else if (this.phase === 'walkAway') {
-      Player.isWalking = true;
-      Player.facing = 'right';
-      Player.x += C.WALK_SPEED;
-      if (Player.x > C.WALK_EXIT_X) this._setPhase(now, 'end');
+    } else if (this.phase === 'teleportOut') {
+      // El haz de luz (ver drawTeleportBeam en draw()) dura TELEPORT_BEAM_MS;
+      // al llegar a TELEPORT_HIDE_FRACTION de ese tiempo (el punto más
+      // brillante) el personaje desaparece de golpe, no encogiéndose.
+      if (elapsed >= C.TELEPORT_BEAM_MS * C.TELEPORT_HIDE_FRACTION) {
+        Player.visible = false;
+      }
+      if (elapsed >= C.TELEPORT_BEAM_MS) {
+        this._setPhase(now, 'empty');
+      }
+    } else if (this.phase === 'empty') {
+      // Escena vacía (solo el fondo) un par de segundos antes de la tarjeta final.
+      if (elapsed >= C.TELEPORT_EMPTY_MS) this._setPhase(now, 'end');
     } else if (this.phase === 'end') {
       this.fadeAlpha = Math.min(1, this.fadeAlpha + 16.7 / C.END_FADE_MS);
     }
 
     Particles.update(16.7);
+  },
+
+  // Mac no tiene (todavía) animación propia de teletransporte: al llegar se
+  // simula con un "pop" de escala rápido (a juego con el haz de luz que se
+  // dibuja en draw()); al final desaparece de golpe en el punto más
+  // brillante del haz (ver fase 'teleportOut'), no encogiéndose.
+  _drawMac(ctx, now) {
+    if (!this.macVisible) return;
+    const C = CONFIG.POOL_SCENE;
+    const img = ASSETS.mac;
+    if (!img.complete || img.width === 0) return;
+
+    if (this.phase === 'teleportOut') {
+      const elapsedBeam = now - this.phaseStart;
+      if (elapsedBeam >= C.TELEPORT_BEAM_MS * C.TELEPORT_HIDE_FRACTION) {
+        // desaparece para siempre (no solo "en esta fase"): si no, al pasar
+        // a la fase 'empty' este bloque deja de aplicarse y Mac se dibujaría
+        // otra vez de golpe con el cálculo normal de más abajo.
+        this.macVisible = false;
+        this.macBox = null;
+        return;
+      }
+    }
+
+    let scale = 1;
+    if (this.macAppearAt) {
+      scale = Math.min(1, (now - this.macAppearAt) / C.MAC_APPEAR_MS);
+    }
+    if (scale <= 0) { this.macBox = null; return; }
+
+    const fullBox = getBox(img, C.MAC_X, this.groundY, C.MAC_HEIGHT);
+    const w = fullBox.w * scale;
+    const h = fullBox.h * scale;
+    const x = fullBox.x + (fullBox.w - w) / 2;
+    const y = fullBox.y + (fullBox.h - h); // se encoge "hacia los pies", igual que Player al encoger
+    ctx.drawImage(img, x, y, w, h);
+    this.macBox = { x, y, w, h };
   },
 
   draw(ctx, t, now) {
@@ -157,8 +319,9 @@ const PoolScene = {
 
     // el pájaro, mucho más pequeño que en el combate: reutiliza el mismo
     // ciclo de aleteo (ASSETS.bird.flap) y la misma técnica de escala fija
-    // que Bird (ver getScaledBox en render.js).
-    if (this.phase !== 'end' && ASSETS.bird.flap.length && ASSETS.bird.flap[0].complete && ASSETS.bird.stand.complete) {
+    // que Bird (ver getScaledBox en render.js). Se oculta en 'empty'/'end'
+    // para que la escena quede realmente vacía antes de la tarjeta final.
+    if (this.phase !== 'empty' && this.phase !== 'end' && ASSETS.bird.flap.length && ASSETS.bird.flap[0].complete && ASSETS.bird.stand.complete) {
       const frames = ASSETS.bird.flap;
       const idx = Math.floor(now / CONFIG.BIRD.FLAP_FRAME_MS) % frames.length;
       const img = frames[idx];
@@ -167,13 +330,33 @@ const PoolScene = {
       ctx.drawImage(img, box.x, box.y, box.w, box.h);
     }
 
-    if (this.phase === 'grow' || this.phase === 'hop' || this.phase === 'dialogue' || this.phase === 'walkAway') {
+    if (this.phase === 'grow' || this.phase === 'hop' || this.phase === 'dialogue' || this.phase === 'teleportOut') {
       Player.draw(ctx, t, this.groundY, 0);
+    }
+    this._drawMac(ctx, now);
+
+    // Haz de luz de la llegada de Mac (independiente de la fase: ocurre a
+    // mitad del diálogo).
+    if (this.macBeamStart) {
+      const beamT = (now - this.macBeamStart) / C.TELEPORT_BEAM_MS;
+      if (beamT <= 1) {
+        drawTeleportBeam(ctx, C.MAC_X, this.groundY, _beamEnvelope(beamT));
+      }
+    }
+
+    // Haz de luz de la desaparición final de Hero + Mac.
+    if (this.phase === 'teleportOut') {
+      const beamT = (now - this.phaseStart) / C.TELEPORT_BEAM_MS;
+      const beamAlpha = _beamEnvelope(beamT);
+      drawTeleportBeam(ctx, Player.x, this.groundY, beamAlpha);
+      drawTeleportBeam(ctx, C.MAC_X, this.groundY, beamAlpha);
     }
 
     if (this.phase === 'dialogue') {
-      const box = Player._box || { x: Player.x, y: this.groundY - Player.height, w: 0, h: 0 };
-      const result = drawDialogueBox(ctx, box.x + box.w / 2, box.y, 260, C.LINE, this.dialogueRevealCount);
+      const line = POOL_DIALOGUE[this.dialogueIndex];
+      const speakerBox = (line.speaker === 'mac' ? this.macBox : Player._box)
+        || { x: Player.x, y: this.groundY - Player.height, w: 0, h: 0 };
+      const result = drawDialogueBox(ctx, speakerBox.x + speakerBox.w / 2, speakerBox.y, 260, line.text, this.dialogueRevealCount);
       this.dialogueTotalChars = result.totalChars;
       drawPressHint(ctx, 'E per avançar', CONFIG.CANVAS_W, CONFIG.CANVAS_H, t);
     }

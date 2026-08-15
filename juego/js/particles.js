@@ -26,14 +26,29 @@ const Particles = {
   draw(ctx) {
     this.list.forEach((p) => {
       const lifeRatio = Math.max(0, 1 - p.age / p.life);
-      const size = p.shrink ? p.size * lifeRatio : p.size;
-      if (size <= 0) return;
+      // p.fadeIn: en vez de apagarse con el tiempo, aparece progresivamente
+      // (ver spawnMaterialize, usado para que Mac "se forme" en escena).
+      const alpha = p.fadeIn ? Math.min(1, p.age / (p.fadeInMs || p.life)) : (p.fade ? lifeRatio : 1);
+      if (alpha <= 0) return;
       ctx.save();
-      ctx.globalAlpha = p.fade ? lifeRatio : 1;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.globalAlpha = alpha;
+      if (p.img) {
+        // "astilla" de sprite: un recorte vertical del propio personaje (ver
+        // spawnDissolve/spawnMaterialize), en vez de una simple chispa de color.
+        const w = p.shrink ? p.w * lifeRatio : p.w;
+        const h = p.shrink ? p.h * lifeRatio : p.h;
+        if (w > 0.5 && h > 0.5) {
+          ctx.drawImage(p.img, p.sx, p.sy, p.sw, p.sh, p.x, p.y, w, h);
+        }
+      } else {
+        const size = p.shrink ? p.size * lifeRatio : p.size;
+        if (size > 0) {
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
       ctx.restore();
     });
   },
@@ -130,6 +145,78 @@ function spawnSplash(x, y) {
       gravity: 0,
       shrink: false,
       fade: true
+    });
+  }
+}
+
+// Chispas mágicas de teletransporte (ver PoolScene, aparición/desaparición
+// de Mac Arrons y salida final de Hero+Mac): un anillo de chispas
+// morado/dorado que sale disparado hacia fuera, a juego con el sombrero de
+// mag de Mac.
+function spawnTeleport(x, y) {
+  for (let i = 0; i < 22; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.5 + Math.random() * 4;
+    Particles.spawn({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 350 + Math.random() * 350,
+      color: Math.random() < 0.5 ? '#b98bf0' : '#ffd447',
+      size: 2.5 + Math.random() * 3.5,
+      gravity: 0,
+      shrink: true
+    });
+  }
+}
+
+// Desintegración en tiras verticales (ver referencia "teleport example.gif"
+// aportada por el usuario: el personaje se rompe en columnas finas de su
+// propia silueta, que salen disparadas hacia arriba a distinta velocidad
+// mientras se desvanecen y encogen, en vez de simples chispas de color).
+// img/x/y/w/h son la imagen y la caja en pantalla donde estaba dibujado el
+// personaje justo antes de desaparecer (ver PoolScene).
+function spawnDissolve(img, x, y, w, h) {
+  if (!img || !img.complete || !img.width) return;
+  const strips = 12;
+  const stripW = w / strips;
+  const srcStripW = img.width / strips;
+  for (let i = 0; i < strips; i++) {
+    Particles.spawn({
+      img,
+      sx: i * srcStripW, sy: 0, sw: srcStripW, sh: img.height,
+      x: x + i * stripW, y, w: stripW, h,
+      vx: (Math.random() - 0.5) * 0.7,
+      vy: -(1.3 + Math.random() * 2.6),
+      gravity: -0.01,
+      life: 380 + Math.random() * 260,
+      fade: true,
+      shrink: true
+    });
+  }
+}
+
+// El efecto inverso: tiras del sprite que "caen" un poco desde arriba y se
+// desvanecen sobre la posición final, como si el personaje se formara a
+// partir de fragmentos oscuros (a juego con spawnDissolve; se usa junto con
+// un "pop" de escala del propio sprite real, ver macAppearAt en PoolScene).
+function spawnMaterialize(img, x, y, w, h) {
+  if (!img || !img.complete || !img.width) return;
+  const strips = 12;
+  const stripW = w / strips;
+  const srcStripW = img.width / strips;
+  for (let i = 0; i < strips; i++) {
+    const drop = 18 + Math.random() * 24;
+    Particles.spawn({
+      img,
+      sx: i * srcStripW, sy: 0, sw: srcStripW, sh: img.height,
+      x: x + i * stripW, y: y - drop, w: stripW, h,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: drop / 16,
+      gravity: 0,
+      life: 260 + Math.random() * 180,
+      fade: true,
+      shrink: false
     });
   }
 }
