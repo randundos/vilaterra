@@ -8,7 +8,7 @@ ctx.imageSmoothingEnabled = false;
 const groundY = CONFIG.CANVAS_H * CONFIG.GROUND_Y_RATIO;
 const smallGroundY = CONFIG.CANVAS_H * CONFIG.SMALL_WORLD.GROUND_Y_RATIO;
 
-let mode = 'cutscene'; // 'cutscene' | 'gameplay' | 'small'
+let mode = 'cutscene'; // 'cutscene' | 'gameplay' | 'small' | 'small2' (al otro lado de la cueva)
 
 // Escena "Mac rocía a Hero con la manguera" tras el diálogo de encuentro:
 // null | 'spraying' (rociando un momento antes de encoger) | 'shrinking' | 'done'
@@ -21,7 +21,7 @@ let macSprayNextParticle = 0;
 let deathPhase = null;
 let deathStart = 0;
 
-Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small') && !Dialogue.active && !macSprayPhase && !deathPhase && !ItemPopup.active) Player.jump(); };
+Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && !Dialogue.active && !macSprayPhase && !deathPhase && !ItemPopup.active) Player.jump(); };
 // tecla E: en la cinemática avanza el diálogo/la escena; en jugabilidad, si
 // hay un aviso de objeto conseguido lo cierra (prioridad máxima), si no hay
 // un diálogo en pantalla lo avanza, y si no, ataca (antes era el clic
@@ -30,11 +30,11 @@ Input.onAction = () => {
   const now = performance.now();
   if (mode === 'cutscene') {
     Cutscene.handleAction(now);
-  } else if ((mode === 'gameplay' || mode === 'small') && ItemPopup.active) {
+  } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && ItemPopup.active) {
     ItemPopup.dismiss();
-  } else if ((mode === 'gameplay' || mode === 'small') && Dialogue.active) {
+  } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && Dialogue.active) {
     Dialogue.advance(now);
-  } else if ((mode === 'gameplay' || mode === 'small') && !macSprayPhase && !deathPhase) {
+  } else if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && !macSprayPhase && !deathPhase) {
     Player.attack(now);
   }
 };
@@ -93,7 +93,8 @@ function startSmallWorld(now) {
   Player.grounded = true;
   Player.jumpsUsed = 0;
   Player.isWalking = false;
-  Player.pits = CONFIG.SMALL_WORLD.PITS.map((p) => ({ ...p }));
+  SmallWorldPits.reset(); // Player.pits apunta a esta MISMA lista
+  Player.pits = SmallWorldPits.list;
   Player.platforms = CONFIG.SMALL_WORLD.PLATFORMS.map((p) => ({ ...p }));
 
   Camera.reset();
@@ -102,12 +103,64 @@ function startSmallWorld(now) {
   Ants.reset(now, smallGroundY);
   Worm.init(now, smallGroundY);
   Talp.init(now, smallGroundY);
+  CaveGate.reset(); // rocas tapando la boca de la cueva, hasta que se derrote a Talp otra vez
   Platforms.reset();
   Pickups.items = []; // limpia pulseras de una posible partida anterior
   // pulseras "de regalo" encima de las plataformas bonus, ya colocadas desde el inicio del tramo
   Platforms.list.filter((p) => p.bonus).forEach((p) => {
     Pickups.spawnBraceletsAt(p.x + p.width / 2, smallGroundY + p.top - CONFIG.PICKUP.GROUND_OFFSET, 3);
   });
+}
+
+// Al otro lado de la cueva: zona provisional (ver CONFIG.SMALL_WORLD2), sin
+// resetear vida/pulseras/espada -> es la misma partida continuando, no un
+// reinicio. La dispara updateCaveTransition() a media pantalla en negro.
+function startSmallWorld2(now) {
+  mode = 'small2';
+
+  Player.x = CONFIG.MARGIN_X + 40;
+  Player.facing = 'right';
+  Player.dashVX = 0;
+  Player.vy = 0;
+  Player.jumpOffset = 0;
+  Player.grounded = true;
+  Player.jumpsUsed = 0;
+  Player.isWalking = false;
+  Player.levelWidth = CONFIG.SMALL_WORLD2.LEVEL_WIDTH;
+  Player.pits = [];
+  Player.platforms = [];
+
+  Pickups.items = [];
+  Camera.reset();
+}
+
+// Corte a negro al cruzar la cueva (Talp ya derrotado): congela el mundo
+// mientras dura (ver el freeze en update()), cambia de pantalla a media
+// pantalla en negro, y vuelve a aparecer ya en nivel 2 parte 2.
+const CAVE_TRANSITION_MS = 500;
+let caveTransition = null; // null | 'out' | 'in'
+let caveTransitionStart = 0;
+
+function startCaveTransition(now) {
+  if (caveTransition) return;
+  caveTransition = 'out';
+  caveTransitionStart = now;
+}
+
+function updateCaveTransition(now) {
+  if (caveTransition === 'out' && now - caveTransitionStart >= CAVE_TRANSITION_MS) {
+    startSmallWorld2(now);
+    caveTransition = 'in';
+    caveTransitionStart = now;
+  } else if (caveTransition === 'in' && now - caveTransitionStart >= CAVE_TRANSITION_MS) {
+    caveTransition = null;
+  }
+}
+
+function caveTransitionAlpha(now) {
+  if (caveTransition === 'out') return Math.min(1, (now - caveTransitionStart) / CAVE_TRANSITION_MS);
+  if (caveTransition === 'in') return Math.max(0, 1 - (now - caveTransitionStart) / CAVE_TRANSITION_MS);
+  return 0;
 }
 
 // Reinicia el nivel 1 desde el principio: lo dispara la caída por el
@@ -159,6 +212,7 @@ function restartSmallWorld(now) {
   Player.hasSword = false;
   Pickups.items = [];
   ItemPopup.dismiss();
+  caveTransition = null; // por si acaso, aunque no debería poder morir en mitad del corte a negro
   startSmallWorld(now);
 }
 
@@ -173,7 +227,7 @@ function startDeath(now) {
 
 function updateDeathScene(now) {
   if (now - deathStart < CONFIG.DEATH.DURATION_MS) return;
-  const diedInSmallWorld = mode === 'small';
+  const diedInSmallWorld = mode === 'small' || mode === 'small2'; // morir en la parte 2 (aún sin peligros) también reinicia el tramo desde el principio
   deathPhase = null;
   if (diedInSmallWorld) {
     restartSmallWorld(now);
@@ -212,9 +266,21 @@ function update() {
     return; // el mundo se congela mientras se ve el aviso de objeto conseguido
   }
 
+  if (caveTransition) {
+    updateCaveTransition(now);
+    return; // el mundo se congela durante el corte a negro al cruzar la cueva
+  }
+
+  if (mode === 'small2') {
+    Player.update();
+    Camera.update(Player.x, CONFIG.SMALL_WORLD2.LEVEL_WIDTH);
+    if (Player.health <= 0) startDeath(now);
+    return;
+  }
+
   if (mode === 'small') {
     Player.update();
-    checkPitFall(now); // caer por la gran travesía (o el segundo agujero) = "Has Fallat" y se reinicia el tramo
+    checkPitFall(now); // caer por la gran travesía = "Has Fallat" y se reinicia el tramo
     checkGrassBladeHit(now, Player, smallGroundY); // primero el golpe, o nunca pasaría de "sólido"
     blockGrassBlade(Player);
     checkAntSwordHit(now, Player, smallGroundY);
@@ -223,9 +289,13 @@ function update() {
     checkWormSwordHit(now, Player, smallGroundY); // primero el golpe, o el contacto lateral haría daño igualmente
     checkWormCollision(now, Player, smallGroundY);
     Worm.update(now);
-    checkTalpSwordHit(now, Player, smallGroundY); // primero el golpe, o el contacto lateral haría daño igualmente
+    checkTalpSwordHit(now, Player, smallGroundY); // primero el golpe, o el pisotón lo mataría igual
     checkTalpCollision(now, Player, smallGroundY);
     Talp.update(now, Player, smallGroundY);
+    blockTalpBody(Player, smallGroundY); // el cuerpo de Talp es sólido a su alrededor, pero se puede saltar por encima
+    CaveGate.update(now);
+    blockCaveEntrance(Player); // barrera de la boca de la cueva, esta sí ocupa toda la altura, mientras Talp no esté derrotado
+    if (checkCaveTransition(Player)) startCaveTransition(now);
     Camera.update(Player.x, CONFIG.SMALL_WORLD.LEVEL_WIDTH);
     GrassBlade.update(now);
     SwordPickup.update(now, Player, smallGroundY);
@@ -279,8 +349,20 @@ function draw(t) {
 
   const now = performance.now();
 
+  if (mode === 'small2') {
+    drawSmallWorld2Background(ctx, Camera.x);
+    drawComingSoonSign(ctx, Camera.x, smallGroundY, CONFIG.SMALL_WORLD2.SIGN_X);
+    Player.draw(ctx, t, smallGroundY, Camera.x);
+    drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
+    drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
+    if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
+    drawFadeOverlay(ctx, canvas.width, canvas.height, caveTransitionAlpha(now));
+    return;
+  }
+
   if (mode === 'small') {
     drawSmallWorldBackground(ctx, Camera.x);
+    drawCaveEntrance(ctx, Camera.x, smallGroundY, CaveGate.rubbleAlpha);
     Platforms.draw(ctx, smallGroundY, Camera.x);
     GrassBlade.draw(ctx, now, smallGroundY, Camera.x);
     SwordPickup.draw(ctx, now, smallGroundY, Camera.x);
@@ -294,6 +376,7 @@ function draw(t) {
     drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
     if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
     if (ItemPopup.active) drawItemPopup(ctx, now, canvas.width, canvas.height, ItemPopup);
+    drawFadeOverlay(ctx, canvas.width, canvas.height, caveTransitionAlpha(now));
     return;
   }
 
@@ -328,7 +411,7 @@ if (CONFIG.DEBUG) {
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     const now = performance.now();
-    if ('12345678'.includes(e.key)) ItemPopup.dismiss(); // por si algún atajo salta en mitad del aviso de objeto
+    if ('123456789'.includes(e.key)) ItemPopup.dismiss(); // por si algún atajo salta en mitad del aviso de objeto
 
     if (e.key === '1') {
       // justo antes del agujero
@@ -394,7 +477,7 @@ if (CONFIG.DEBUG) {
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
-      Player.x = CONFIG.TALP.SPAWN_X - CONFIG.TALP.WAKE_DISTANCE - 30;
+      Player.x = CONFIG.TALP.GUARD_X - CONFIG.TALP.WAKE_DISTANCE - 30;
     } else if (e.key === '8') {
       // justo antes del gusano, con espada
       deathPhase = null;
@@ -402,10 +485,18 @@ if (CONFIG.DEBUG) {
       GrassBlade.state = 'gone';
       Player.hasSword = true;
       Player.x = CONFIG.WORM.SPAWN_X - 150;
+    } else if (e.key === '9') {
+      // nivel 2 parte 2, al otro lado de la cueva (Talp ya "derrotado")
+      deathPhase = null;
+      caveTransition = null;
+      startSmallWorld(now); // por si se necesita volver atrás con '6'/'7'/'8' después
+      Talp.defeated = true;
+      Player.hasSword = true;
+      startSmallWorld2(now);
     }
   });
 
-  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano');
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva)');
 }
 
 loadAssets(() => {

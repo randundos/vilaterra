@@ -167,31 +167,43 @@ const CONFIG = {
     BRACELET_REWARD: 4
   },
 
-  // Talp (topo): jefe final del tramo de hierba, sustituye a la hormiga
-  // veterana. Emerge del suelo al acercarse Hero, hace un rugido de
-  // intimidación, y luego patrulla alternando entre pisotón/espada como
-  // única forma de hacerle daño de verdad (las poses ATTACK1/ATTACK2 son
-  // solo un ademán amenazante al tener a Hero cerca, no un ataque a
-  // distancia). Hace falta golpearlo más de 5 veces (6) para matarlo; al
-  // morir se hunde en la tierra en varias fases antes de desaparecer.
+  // Talp (topo): jefe final del tramo de hierba, guarda la boca de la cueva
+  // (ver SMALL_WORLD.CAVE). Ya NO sale del suelo: empieza escondido DENTRO
+  // de la cueva (CAVE_X) y, al acercarse Hero, camina (WALK) hasta su puesto
+  // de guardia (GUARD_X), ruge (TAUNT) y a partir de ahí lo persigue de
+  // verdad: si está lejos avanza hacia él (WALK de nuevo), y si lo tiene a
+  // tiro se para y ataca (ATTACK2) cada ATTACK_COOLDOWN_MS (1,5s) para que
+  // sea agresivo sin abrumar. Quieto sin nada que hacer usa IDLE. Su cuerpo
+  // es sólido a su alrededor (ver blockTalpBody en talp.js) pero NO por
+  // encima: se le puede saltar. Aun así, la única forma de cruzar la cueva
+  // es derrotarlo (más de 5 golpes = 6, pisotón o espada): mientras siga
+  // vivo, la propia boca de la cueva tiene su propia barrera (ver
+  // blockCaveEntrance en cave.js) que esta sí no se puede saltar.
+  // Los sets de WALK/TAUNT/IDLE/ATTACK2/DEATH son ciclos reales de varios
+  // frames (ver ASSETS.talp); *_FRAME_MS es la duración de cada frame, la
+  // duración total de cada ciclo sale de multiplicarlo por su nº de frames.
   TALP: {
-    HEIGHT: 140,          // más grande que Hero, para que se note que es el jefe
-    SPAWN_X: 3080,        // donde antes iba la hormiga veterana
-    WAKE_DISTANCE: 260,   // a esta distancia empieza a emerger
-    EMERGE_MS: 550,
-    TAUNT_MS: 900,
-    SPEED: 1.1,
-    PATROL_RANGE: 90,
-    IDLE_MS: 900,
-    MOVE_MS: 900,
-    ATTACK_RANGE: 150,    // a esta distancia, de vez en cuando hace un ademán de ataque
-    ATTACK_POSE_MS: 500,
-    ATTACK_COOLDOWN_MS: 1400,
+    HEIGHT: 140,           // más grande que Hero, para que se note que es el jefe
+    CAVE_X: 3640,          // dentro de la boca de la cueva, punto de partida mientras está "dormant"
+    GUARD_X: 3450,         // puesto de guardia, delante de la boca, tras salir de la cueva
+    WAKE_DISTANCE: 260,    // a esta distancia (respecto a GUARD_X) empieza a salir
+    SPEED: 1.6,            // ritmo al caminar, tanto al salir de la cueva como al perseguir
+    WALK_FRAME_MS: 90,     // ciclo de 5 frames -> ~450ms por zancada completa
+    TAUNT_FRAME_MS: 70,    // ciclo de 13 frames -> ~910ms de rugido
+    IDLE_FRAME_MS: 180,    // ciclo de 8 frames, de fondo mientras espera
+    CHASE_LEASH: 420,      // no se aleja más de esto de GUARD_X al perseguir
+    ATTACK_RANGE: 150,     // a esta distancia deja de avanzar y ataca en vez de seguir acercándose
+    HIT_RANGE: 170,        // rango real en el que el golpe conecta (algo más generoso que ATTACK_RANGE)
+    ATTACK_FRAME_MS: 65,   // ciclo de 9 frames -> ~585ms de ataque
+    ATTACK_HIT_FRACTION: 0.6, // instante del ciclo de ataque (9 frames) en el que conecta el golpe
+    ATTACK_COOLDOWN_MS: 1500, // "que tarde 1,5 segundo entre cada ataque"
+    BODY_WIDTH: 100,       // ancho del cuerpo sólido que bloquea el paso de Hero (solo a su alrededor, no por encima)
     HURT_MS: 350,
-    HITS_TO_KILL: 6,      // "más de 5 veces"
-    DEATH_STAGE_MS: 320,  // cuánto se ve cada fase de la animación de hundirse
+    HITS_TO_KILL: 6,       // "más de 5 veces"
+    DEATH_FRAME_MS: 90,    // ciclo de 11 frames hundiéndose -> ~990ms
+    DEATH_HOLD_MS: 300,    // se queda quieto en el último frame antes de empezar a desvanecerse
     DEATH_FADE_MS: 500,
-    BRACELET_REWARD: 10   // recompensa de jefe, el doble que una hormiga normal
+    BRACELET_REWARD: 10    // recompensa de jefe, el doble que una hormiga normal
   },
 
   HUD: {
@@ -227,7 +239,7 @@ const CONFIG = {
 
   // --- Tramo "Hero pequeño" en la hierba, tras la escena de la manguera ---
   SMALL_WORLD: {
-    LEVEL_WIDTH: 3300,
+    LEVEL_WIDTH: 3820,       // ampliado para dejar sitio a la cueva del final (ver CAVE)
     GROUND_Y_RATIO: 0.85,
     GRASS_BLADE_X: 700,      // posición del tallo que hay que golpear con el ataque
     GRASS_BLADE_HEIGHT: 260, // bien alta para que destaque, como una hierba gigante
@@ -240,10 +252,33 @@ const CONFIG = {
     // El primero es la gran travesía: solo se puede cruzar saltando de
     // plataforma en plataforma (ver PLATFORMS); el segundo es un agujero
     // simple, como el del nivel 1, para el que el salto normal llega de sobra.
+    // El segundo agujero que había aquí (justo antes de Talp) se ha
+    // quitado: ahora el final del tramo lo marca la cueva (ver CAVE), no un agujero.
     PITS: [
-      { x: 1400, width: 920 },
-      { x: 2750, width: 150 }
+      { x: 1400, width: 920 }
     ],
+
+    // Cueva al final del tramo: la salida hacia "nivel 2, parte 2". Usa la
+    // imagen real (ASSETS.caveWall, ver textura_cueva.png... ahora
+    // cueva_entrada.png) en vez de dibujo procedural: GROUND_LINE_FRAC es la
+    // fila (fracción de la altura de la imagen) que coincide con el suelo
+    // del juego, así se escala y posiciona para que encaje exactamente con
+    // el resto del suelo; MOUTH_CENTER_FRAC/MOUTH_WIDTH_FRAC ubican la boca
+    // oscura dentro de esa imagen ya escalada, solo para las rocas y el
+    // cálculo de X/GATE_X/TRANSITION_X de abajo (medidos a ojo sobre la
+    // imagen). Mientras Talp siga vivo, una barrera invisible (ver
+    // blockCaveEntrance en cave.js) impide pasar de GATE_X, con unas rocas
+    // dibujadas encima a modo de bloqueo visual; en cuanto muere, las rocas
+    // se desvanecen (CaveGate) y cruzar hasta TRANSITION_X dispara el
+    // cambio de pantalla.
+    CAVE: {
+      X: 3200,               // borde izquierdo de la imagen, en coordenadas de MUNDO
+      GROUND_LINE_FRAC: 0.842,
+      MOUTH_CENTER_FRAC: 0.85, // centro de la boca oscura, como fracción del ancho ya escalado
+      MOUTH_WIDTH_FRAC: 0.22,  // ancho aproximado de la boca, como fracción del ancho ya escalado
+      GATE_X: 3610,           // hasta dónde se puede acercar a la boca mientras Talp siga vivo
+      TRANSITION_X: 3700      // cruzar este punto (con Talp derrotado) = pasa a nivel 2 parte 2
+    },
 
     // Plataformas flotantes: "top" es cuánto se elevan sobre el suelo (en
     // negativo, como jumpOffset). La primera es una plataforma "bonus" con
@@ -256,6 +291,16 @@ const CONFIG = {
       { x: 1800, width: 130, top: -110 },
       { x: 2040, width: 140, top: -60 }
     ]
+  },
+
+  // --- Nivel 2, parte 2: al otro lado de la cueva ---
+  // Zona provisional (mismo estilo visual que SMALL_WORLD, sin agujeros,
+  // plataformas ni enemigos todavía): sirve para que la travesía de la
+  // cueva funcione de punta a punta ya mismo; se irá rellenando más adelante.
+  SMALL_WORLD2: {
+    LEVEL_WIDTH: 1000,
+    GROUND_Y_RATIO: 0.85,
+    SIGN_X: 650 // cartel de "próximamente" cerca del final, mientras no haya más contenido
   },
 
   // --- Cinemática inicial (caída del meteorito) ---

@@ -98,6 +98,17 @@ function drawDeathOverlay(ctx, now, deathStart) {
   ctx.restore();
 }
 
+// Fundido a negro genérico (0 = transparente, 1 = negro sólido): lo usa la
+// travesía de la cueva para cortar a negro y volver a aparecer al otro lado.
+function drawFadeOverlay(ctx, canvasW, canvasH, alpha) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.fillStyle = '#000';
+  ctx.globalAlpha = Math.min(1, alpha);
+  ctx.fillRect(0, 0, canvasW, canvasH);
+  ctx.restore();
+}
+
 // Aviso emergente "objeto conseguido" (ver ItemPopup en popup.js): icono a
 // la izquierda dentro de una ranura oscura, texto a la derecha, con un
 // marco de esquinas cuadradas (sin bordes redondeados) para que encaje con

@@ -2,7 +2,7 @@
 // ASSET_V se añade como query string a cada imagen para evitar que el
 // navegador sirva una versión vieja cacheada de un archivo que hemos
 // sustituido en disco (mismo nombre de archivo, contenido nuevo).
-const ASSET_V = 8;
+const ASSET_V = 12;
 function withV(path) {
   return `${path}?v=${ASSET_V}`;
 }
@@ -22,12 +22,17 @@ const ASSETS = {
   heroAttackPunch: [],      // 4 frames reales del puñetazo (sin espada)
   sword: new Image(),     // espada suelta, para el pickup en el suelo del tramo de hierba
   bgSmallWorld: new Image(), // fondo del tramo "Hero pequeño" entre la hierba
+  caveWall: new Image(),  // imagen completa de la cueva del final del tramo (promontorio + boca), ver CONFIG.SMALL_WORLD.CAVE
   ant: new Image(),       // hormiga con rifle, primer enemigo del tramo de hierba
   worm: { rest: new Image(), move: new Image(), jump: new Image(), death: new Image() }, // gusano, 2o enemigo del tramo de hierba
-  talp: {                 // Talp (topo), jefe final del tramo de hierba
-    emerge: new Image(), taunt: new Image(), idle: new Image(), move: new Image(),
-    attack1: new Image(), attack2: new Image(), damage1: new Image(), damage2: new Image(),
-    death: [] // 3 fases: se hunde en la tierra por etapas
+  talp: {                 // Talp (topo), jefe final del tramo de hierba: ciclos reales de varios frames
+    walk: [],             // 5 frames: sale de la cueva y persigue a Hero
+    taunt: [],             // 13 frames: rugido de intimidación, una vez al salir
+    idle: [],               // 8 frames: quieto, sin hacer nada
+    attack2: [],           // 9 frames: el ataque cuerpo a cuerpo real
+    attack1: new Image(), // sin usar de momento (se dejó cargada por si hace falta variedad más adelante)
+    damage1: new Image(), damage2: new Image(), // una única pose por golpe recibido
+    death: []              // 11 frames hundiéndose + se queda en el último antes de desvanecerse
   },
   blai: new Image(),      // solo aparece en la cinemática inicial
   blaiShock: new Image(), // pose de Blai preocupado (manos a la cabeza) para el diálogo
@@ -49,17 +54,13 @@ ASSETS.hero.src = withV('../Visuals/Hero_sinfondo.png');
 ASSETS.heroSwordIdle.src = withV('../Visuals/hero_walk_sword/walk_0.png');
 ASSETS.sword.src = withV('../Visuals/Espada_sinfondo.png');
 ASSETS.bgSmallWorld.src = withV('../Visuals/fondo_hierba.png');
+ASSETS.caveWall.src = withV('../Visuals/cueva_entrada.png');
 ASSETS.ant.src = withV('../Visuals/Hormiga_sinfondo.png');
 ASSETS.worm.rest.src = withV('../Visuals/worm/rest.png');
 ASSETS.worm.move.src = withV('../Visuals/worm/move.png');
 ASSETS.worm.jump.src = withV('../Visuals/worm/jump.png');
 ASSETS.worm.death.src = withV('../Visuals/worm/death.png');
-ASSETS.talp.emerge.src = withV('../Visuals/talp/emerge.png');
-ASSETS.talp.taunt.src = withV('../Visuals/talp/taunt.png');
-ASSETS.talp.idle.src = withV('../Visuals/talp/idle.png');
-ASSETS.talp.move.src = withV('../Visuals/talp/move.png');
 ASSETS.talp.attack1.src = withV('../Visuals/talp/attack1.png');
-ASSETS.talp.attack2.src = withV('../Visuals/talp/attack2.png');
 ASSETS.talp.damage1.src = withV('../Visuals/talp/damage1.png');
 ASSETS.talp.damage2.src = withV('../Visuals/talp/damage2.png');
 
@@ -79,7 +80,11 @@ loadFrameSet(ASSETS.heroJumpSword, 'hero_jump_sword', 'jump', HERO_JUMP_FRAME_CO
 loadFrameSet(ASSETS.heroAttackVertical, 'hero_attack_vertical', 'slash', CONFIG.ATTACK.SWORD_FRAME_COUNT);
 loadFrameSet(ASSETS.heroAttackHorizontal, 'hero_attack_horizontal', 'slash', CONFIG.ATTACK.SWORD_FRAME_COUNT);
 loadFrameSet(ASSETS.heroAttackPunch, 'hero_attack_punch', 'punch', CONFIG.ATTACK.UNARMED_FRAME_COUNT);
-loadFrameSet(ASSETS.talp.death, 'talp', 'death', 3);
+loadFrameSet(ASSETS.talp.walk, 'talp', 'walk', 5);
+loadFrameSet(ASSETS.talp.taunt, 'talp', 'taunt', 13);
+loadFrameSet(ASSETS.talp.idle, 'talp', 'idle', 8);
+loadFrameSet(ASSETS.talp.attack2, 'talp', 'attack2', 9);
+loadFrameSet(ASSETS.talp.death, 'talp', 'death', 11);
 ASSETS.blai.src = withV('../Visuals/Blai_sinfondo.png');
 ASSETS.blaiShock.src = withV('../Visuals/Blai_preocupat_sinfondo.png');
 ASSETS.blaiPoint.src = withV('../Visuals/Blai_preguntant_sinfondo.png');

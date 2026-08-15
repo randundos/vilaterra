@@ -206,10 +206,98 @@ function drawSmallWorldBackground(ctx, cameraX) {
   const groundH = CONFIG.CANVAS_H - groundY;
   drawParallaxLayer(ctx, ASSETS.bgSmallWorld, CONFIG.CANVAS_W, 0, groundY, cameraX, CONFIG.PARALLAX_SKY_FACTOR, false);
   drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
-  // los tramos sin suelo (CONFIG.SMALL_WORLD.PITS) se "recortan" del suelo
-  // tileado de arriba: así se ve claramente que ahí no se puede pisar y que
-  // hay que cruzar saltando por las plataformas (ver Platforms en main.js)
-  CONFIG.SMALL_WORLD.PITS.forEach((pit) => drawPit(ctx, pit, cameraX, groundY, groundH, ASSETS.bgSmallWorld, CONFIG.PARALLAX_SKY_FACTOR));
+  // los tramos sin suelo (SmallWorldPits.list, que empieza como copia de
+  // CONFIG.SMALL_WORLD.PITS) se "recortan" del suelo tileado de arriba: así
+  // se ve claramente que ahí no se puede pisar
+  SmallWorldPits.list.forEach((pit) => drawPit(ctx, pit, cameraX, groundY, groundH, ASSETS.bgSmallWorld, CONFIG.PARALLAX_SKY_FACTOR));
+}
+
+// Cueva del final del tramo de hierba: la imagen real (ASSETS.caveWall), un
+// promontorio de tierra con la boca de la cueva ya dibujada dentro. Se
+// escala para que la fila marcada por CAVE.GROUND_LINE_FRAC caiga
+// exactamente en groundY (igual que encaja la textura de suelo normal), y
+// se posiciona con su borde izquierdo en CAVE.X. Mientras Talp no esté
+// derrotado, unas rocas tapan la boca (rubbleAlpha 1 -> 0 según se van
+// desvaneciendo al abrirse el paso).
+function drawCaveEntrance(ctx, cameraX, groundY, rubbleAlpha) {
+  const img = ASSETS.caveWall;
+  if (!img.complete || img.width === 0) return;
+  const CAVE = CONFIG.SMALL_WORLD.CAVE;
+
+  const groundLineImgY = img.height * CAVE.GROUND_LINE_FRAC;
+  const scale = (CONFIG.CANVAS_H - groundY) / (img.height - groundLineImgY);
+  const drawW = img.width * scale;
+  const drawH = img.height * scale;
+  const screenX = CAVE.X - cameraX;
+  if (screenX + drawW < -40 || screenX > CONFIG.CANVAS_W + 40) return;
+  const drawY = groundY - groundLineImgY * scale;
+
+  ctx.drawImage(img, screenX, drawY, drawW, drawH);
+
+  // rocas bloqueando la boca mientras Talp siga vivo
+  if (rubbleAlpha > 0.01) {
+    const mouthX = screenX + drawW * CAVE.MOUTH_CENTER_FRAC;
+    const mouthW = drawW * CAVE.MOUTH_WIDTH_FRAC;
+    ctx.save();
+    ctx.globalAlpha = rubbleAlpha;
+    const baseY = groundY - 4;
+    const rocks = [
+      [-0.32, 0.95, '#8a7053'], [0.02, 1.1, '#6b5640'], [0.34, 0.9, '#7d6449'],
+      [-0.08, 0.6, '#9c8768'], [0.18, 0.55, '#7d6449']
+    ];
+    rocks.forEach(([ox, rscale, color]) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(mouthX + ox * mouthW, baseY - 14 * rscale, 20 * rscale, 16 * rscale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(30, 20, 10, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+}
+
+// Fondo de "nivel 2, parte 2": mismo estilo visual que el tramo de hierba
+// (misma hierba de fondo y misma franja de suelo), pero sin agujeros ni
+// plataformas: es una zona provisional a la espera de más contenido.
+function drawSmallWorld2Background(ctx, cameraX) {
+  const groundY = CONFIG.CANVAS_H * CONFIG.SMALL_WORLD2.GROUND_Y_RATIO;
+  const groundH = CONFIG.CANVAS_H - groundY;
+  drawParallaxLayer(ctx, ASSETS.bgSmallWorld, CONFIG.CANVAS_W, 0, groundY, cameraX, CONFIG.PARALLAX_SKY_FACTOR, false);
+  drawParallaxLayer(ctx, ASSETS.bgGround, CONFIG.CANVAS_W, groundY, groundH, cameraX, 1, true);
+}
+
+// Cartel de madera sencillo (placeholder) avisando de que, por ahora, el
+// nivel acaba aquí: evita que llegar al final de la zona provisional se
+// sienta como un error en vez de "aún no hay más".
+function drawComingSoonSign(ctx, cameraX, groundY, worldX) {
+  const screenX = worldX - cameraX;
+  if (screenX < -140 || screenX > CONFIG.CANVAS_W + 140) return;
+
+  const postW = 10, postH = 90;
+  const boardW = 230, boardH = 66;
+  const boardBottomY = groundY - postH;
+
+  ctx.save();
+  ctx.fillStyle = '#6b4a2b';
+  ctx.fillRect(screenX - postW / 2, groundY - postH, postW, postH);
+
+  ctx.fillStyle = '#8a6238';
+  ctx.strokeStyle = '#3f2a16';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(screenX - boardW / 2, boardBottomY - boardH + 12, boardW, boardH, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#2b1c0f';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 15px Trebuchet MS';
+  ctx.fillText("Més enllà de la cova...", screenX, boardBottomY - boardH / 2 + 4);
+  ctx.font = '13px Trebuchet MS';
+  ctx.fillText('(pròximament)', screenX, boardBottomY - boardH / 2 + 24);
+  ctx.restore();
 }
 
 // Parte un texto en líneas que quepan en maxWidth (con el ctx.font ya puesto).

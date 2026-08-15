@@ -85,6 +85,24 @@ const GrassBlade = {
   }
 };
 
+// Huecos sin suelo del tramo de hierba (ver drawPit/drawSmallWorldBackground
+// en render.js). Empiezan como copia de CONFIG.SMALL_WORLD.PITS; a
+// diferencia de las plataformas, esta lista puede crecer en plena partida
+// (add()) si en algún momento hiciera falta añadir un hueco nuevo sobre la
+// marcha. Player.pits apunta a esta MISMA lista (ver startSmallWorld en
+// main.js), así que cualquier cambio aquí ya cuenta para la colisión de caída.
+const SmallWorldPits = {
+  list: [],
+
+  reset() {
+    this.list = CONFIG.SMALL_WORLD.PITS.map((p) => ({ ...p }));
+  },
+
+  add(pit) {
+    this.list.push(pit);
+  }
+};
+
 // Plataformas flotantes del tramo de hierba: unas cuantas sirven para cruzar
 // la gran travesía (CONFIG.SMALL_WORLD.PITS[0], sin ellas no hay forma de
 // llegar al otro lado) y otra es una plataforma "bonus" con pulseras encima,
