@@ -511,11 +511,9 @@ const CONFIG = {
   // (ver startOfficeScene en main.js). Hero y Mac aparecen con el mismo haz
   // de luz que cierra PoolScene (pero a la inversa: se materializan en vez
   // de desaparecer), Mac se despide porque nota "massa màgia" para él y se
-  // teletransporta fuera, y entonces entra caminando Big Bross, que pide
-  // ayuda porque la màgia se le ha ido de las manos. Escena fija (cameraX=0).
-  // ASSETS.bigBross es un PLACEHOLDER (silueta de mago genérica) hasta que
-  // Randu pase el sprite real - solo hace falta cambiar BG/sprite, la
-  // lógica de la escena ya está lista para el diseño definitivo.
+  // teletransporta fuera, y entonces entra flotando Big Bross (sobre su nube,
+  // ver ASSETS.bigBross), que pide ayuda porque la màgia se le ha ido de las
+  // manos. Escena fija (cameraX=0).
   OFFICE_SCENE: {
     BG_PATH: '../Visuals/level3/oficinas.jpg',
     GROUND_Y: 410, // línea del suelo (baldosa), calibrada a ojo con una rejilla de referencia sobre oficinas.jpg (960x540)
@@ -541,17 +539,98 @@ const CONFIG = {
     MAC_EXIT_HIDE_FRACTION: 0.42,
     POST_MAC_EXIT_PAUSE_MS: 350,
 
-    // Entrada de Big Bross: camina desde fuera de pantalla (derecha) hasta
-    // su punto de parada, con el mismo bamboleo de "andar" que ya usa Mac.
-    // Se para junto a la columna, justo antes del mostrador rojo (zona de
-    // baldosa despejada), cerca de Hero/Mac sin superponerse a los muebles.
+    // Entrada de Big Bross: se desliza flotando (sobre su nube, ya integrada
+    // en el propio sprite) desde fuera de pantalla (derecha) hasta su punto
+    // de parada, con un ligero vaivén vertical (mismo estilo que el hover
+    // del pájaro, ver CONFIG.BIRD.HOVER_*). Se para junto a la columna,
+    // justo antes del mostrador rojo (zona de baldosa despejada), cerca de
+    // Hero/Mac sin superponerse a los muebles.
     BIG_BROSS_HEIGHT: 175,
     BIG_BROSS_ENTRY_X: 1040,
     BIG_BROSS_STOP_X: 450,
-    BIG_BROSS_WALK_SPEED: 1.6,
-    BIG_BROSS_HIP_FRACTION: 0.55,
+    BIG_BROSS_FLOAT_SPEED: 1.6,
+    BIG_BROSS_HOVER_AMPLITUDE: 5,
+    BIG_BROSS_HOVER_SPEED: 0.0018,
+    // El cuerpo verde del sprite se cicla constantemente de color con un
+    // filtro CSS hue-rotate al dibujarlo (ver _drawBigBross): como la nube y
+    // el fondo de galaxia son poco saturados, el giro de tono se nota sobre
+    // todo en el cuerpo (y da un extra de brillo mágico al fondo estrellado).
+    BIG_BROSS_HUE_CYCLE_MS: 6000, // tiempo para completar una vuelta de color (360º)
+
+    // Tras la oferta de Big Bross entra el sapo mago (primer enemigo del
+    // nivel), camina desde fuera de pantalla hasta pararse cerca del centro
+    // de la sala, dice "Croac!" y Big Bross reacciona (con su pose de
+    // sorpresa, ver ASSETS.bigBrossShock/_drawBigBross) antes de marcharse
+    // flotando hacia la izquierda, fuera de pantalla (nada de teletransporte
+    // en su salida). Al terminar, Hero recupera el control (ver fase
+    // 'freeRoam' en officescene.js).
+    TOAD_ENTRY_X: 1040,
+    TOAD_STOP_X: 700,
+    TOAD_ENTER_SPEED: 1.4,
+
+    // Se sorprende en cuanto ve entrar al sapo (fase 'toadEnter') y sigue así
+    // durante su "Croac!" (primera línea de TOAD_INTRO_LINES); en cuanto Big
+    // Bross empieza a hablar (segunda línea, su reacción) vuelve a su pose
+    // normal, y así se va de la escena.
+    BIGBROSS_EXIT_SPEED: 2.2,
+    BIGBROSS_EXIT_OFF_X: -150, // fuera de pantalla del todo por la izquierda
+    POST_BIGBROSS_EXIT_PAUSE_MS: 300,
+
+    // Espacio jugable una vez Hero recupera el control: mismo encuadre fijo
+    // (sin scroll), Hero limitado a MARGIN_X por cada lado dentro del ancho
+    // del canvas -> basta con fijar Player.levelWidth a CANVAS_W.
+    FREE_ROAM_LEVEL_WIDTH: 960,
 
     END_FADE_MS: 900
+  },
+
+  // Sapo mago: primer enemigo del nivel 3 (ver TOAD_ENTRY_X en OFFICE_SCENE
+  // y toad.js). Sheet única (Visuals/toad/toad_sheet.png, ver ASSETS.toad)
+  // con 5 filas (idle/walk/cast/firebreath/death) x 8 columnas/frame, misma
+  // técnica que CONFIG.VEGGIE.SHEETS: cada frame recortado a su tamaño real
+  // y encajado en la esquina superior izquierda de su celda CELL_W x CELL_H
+  // (todas las celdas de un mismo estado comparten tamaño real, a diferencia
+  // de las verduras). El factor de escala (ver getScaledBox) se calcula una
+  // vez a partir de la altura real del frame de idle, así el sapo tumbado al
+  // morir no se estira para ocupar la misma altura que de pie.
+  TOAD: {
+    HEIGHT: 105,
+    CELL_W: 211,
+    CELL_H: 147,
+    FRAME_COUNT: 8,
+    FRAME_SIZES: {
+      idle: [155, 135],
+      walk: [159, 147],
+      cast: [211, 135],
+      firebreath: [167, 135],
+      death: [199, 131]
+    },
+    IDLE_FRAME_MS: 220,
+    WALK_FRAME_MS: 110,
+    CAST_FRAME_MS: 90,
+    FIREBREATH_FRAME_MS: 90,
+    DEATH_FRAME_MS: 90,
+    DEATH_HOLD_MS: 1400,
+    DEATH_FADE_MS: 500,
+
+    // Patrulla cerca de su punto de entrada (igual que las verduras) y, si
+    // Hero está a tiro, ataca alternando hechizo (bala mágica) y aliento de
+    // fuego (daño instantáneo en un cono corto) en vez de patrullar.
+    PATROL_RANGE: 70,
+    SPEED: 1,
+    REST_MS: 900,
+    ATTACK_RANGE: 480, // prácticamente toda la sala: siempre puede atacar si Hero está dentro
+    ATTACK_COOLDOWN_MS: 1600,
+
+    CAST_HIT_FRACTION: 0.55, // instante (0-1) del ciclo de CAST_FRAME_MS*8 en el que sale la bala
+    BULLET_SPEED: 4.2,
+    BULLET_RADIUS: 6,
+    BULLET_LIFETIME_MS: 1600,
+
+    FIREBREATH_HIT_FRACTION: 0.35, // instante del aliento en el que hace daño si Hero está en FIREBREATH_RANGE
+    FIREBREATH_RANGE: 150,
+
+    HEART_HEAL: 20 // corazón que suelta al morir (mismo sistema que las verduras)
   },
 
   // --- Cinemática inicial (caída del meteorito) ---

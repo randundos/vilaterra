@@ -21,7 +21,10 @@ let macSprayNextParticle = 0;
 let deathPhase = null;
 let deathStart = 0;
 
-Input.onJump = () => { if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && !Dialogue.active && !macSprayPhase && !deathPhase && !ItemPopup.active && Bird.state !== 'captured') Player.jump(); };
+Input.onJump = () => {
+  if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && !Dialogue.active && !macSprayPhase && !deathPhase && !ItemPopup.active && Bird.state !== 'captured') Player.jump();
+  else if (mode === 'officescene' && OfficeScene.phase === 'freeRoam' && !deathPhase) Player.jump();
+};
 // tecla E: en la cinemática avanza el diálogo/la escena; en jugabilidad, si
 // hay un aviso de objeto conseguido lo cierra (prioridad máxima), si no hay
 // un diálogo en pantalla lo avanza, y si no, ataca (antes era el clic
@@ -249,8 +252,11 @@ function startDeath(now) {
 function updateDeathScene(now) {
   if (now - deathStart < CONFIG.DEATH.DURATION_MS) return;
   const diedInSmallWorld = mode === 'small' || mode === 'small2'; // morir a manos del pájaro en la parte 2 también reinicia el tramo entero desde el principio (parte 1, con Talp incluido)
+  const diedInOffice = mode === 'officescene'; // morir contra el sapo mago: se repone dentro de la misma sala, sin repetir la cinemática de llegada
   deathPhase = null;
-  if (diedInSmallWorld) {
+  if (diedInOffice) {
+    OfficeScene.restartFreeRoam(now);
+  } else if (diedInSmallWorld) {
     restartSmallWorld(now);
   } else {
     restartLevel1(now);
@@ -279,7 +285,10 @@ function update() {
   }
 
   if (mode === 'officescene') {
-    OfficeScene.update(performance.now());
+    const nowOS = performance.now();
+    if (deathPhase) { updateDeathScene(nowOS); return; } // el mundo se congela mientras se ve "Has Fallat" (solo puede pasar en la fase 'freeRoam')
+    OfficeScene.update(nowOS);
+    if (OfficeScene.phase === 'freeRoam' && Player.health <= 0) startDeath(nowOS);
     return;
   }
 
@@ -571,10 +580,25 @@ if (CONFIG.DEBUG) {
       deathPhase = null;
       caveTransition = null;
       startOfficeScene(now);
+    } else if (e.key === 't') {
+      // directo a la pelea contra el sapo mago (se salta toda la cinemática
+      // previa: llegada, despedida de Mac, diálogo de Big Bross y entrada
+      // del sapo), para probar el combate sin repetirla cada vez
+      deathPhase = null;
+      caveTransition = null;
+      startOfficeScene(now);
+      OfficeScene.toadVisible = true;
+      OfficeScene.bigBrossVisible = false;
+      OfficeScene.macVisible = false;
+      Player.visible = true;
+      OfficeScene._setPhase(now, 'freeRoam');
+      OfficeScene._enterFreeRoam(now);
+      Toad.x = CONFIG.OFFICE_SCENE.TOAD_STOP_X;
+      Toad.activate(now);
     }
   });
 
-  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva) · 0 = justo antes del pájaro · p = escena de la piscina (apertura nivel 3) · o = escena de las oficinas de Infordisa');
+  console.log('[DEBUG] Atajos activos: 1 = antes del agujero · 2 = antes de Mac Arrons · 3 = hierba con espada, cerca de la 1a hormiga · 4 = reiniciar nivel 1 · 5 = probar pantalla de muerte · 6 = antes de la travesía de plataformas · 7 = antes del jefe Talp · 8 = antes del gusano · 9 = nivel 2 parte 2 (al otro lado de la cueva) · 0 = justo antes del pájaro · p = escena de la piscina (apertura nivel 3) · o = escena de las oficinas de Infordisa · t = directo a la pelea contra el sapo mago');
 }
 
 loadAssets(() => {

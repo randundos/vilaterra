@@ -221,6 +221,25 @@ function spawnMaterialize(img, x, y, w, h) {
   }
 }
 
+// Aliento de fuego del sapo mago (ver toad.js): un cono corto de partículas
+// naranjas/rojas disparado en la dirección dir (1 = derecha, -1 = izquierda).
+function spawnFireBreath(x, y, dir) {
+  for (let i = 0; i < 14; i++) {
+    const spread = (Math.random() - 0.5) * 0.5;
+    const speed = 2.5 + Math.random() * 3;
+    Particles.spawn({
+      x, y,
+      vx: Math.cos(spread) * speed * dir,
+      vy: Math.sin(spread) * speed,
+      life: 250 + Math.random() * 200,
+      color: Math.random() < 0.5 ? '#ff9d2e' : '#ff5b3d',
+      size: 3 + Math.random() * 4,
+      gravity: 0,
+      shrink: true
+    });
+  }
+}
+
 // Una chispa suelta de la estela de fuego del meteorito al caer.
 function spawnTrailParticle(x, y) {
   Particles.spawn({
