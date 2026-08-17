@@ -5,8 +5,9 @@
 // acerca (WAKE_DISTANCE), reproducen una vez la animación de aparición
 // (spawn), y a partir de ahí patrullan cerca de su punto de partida (igual
 // que el gusano) atacando por contacto cuerpo a cuerpo cuando Hero se pone a
-// tiro (igual que Talp, pero mucho más flojos). Se matan de un solo golpe
-// (pisotón o espada), igual que hormigas/gusano.
+// tiro (igual que Talp, pero mucho más flojos). Tienen una vida numérica
+// baja (VEGGIE.MAX_HP = 6, la mitad que la media, ver CONFIG.DAMAGE en
+// combat.js) que baja con cada pisotón/golpe hasta morir.
 const Veggies = {
   list: [],
 
@@ -33,6 +34,9 @@ const Veggies = {
         stateStart: now,
         active: false,
         alive: true,
+        hp: C.MAX_HP,
+        hpBarVisible: false,
+        lastSwordHitId: -Infinity,
         nextAttackAt: 0,
         attackHit: false,
         deathAnimDone: false,
@@ -56,8 +60,12 @@ function veggieSetState(v, now, state) {
   v.stateStart = now;
 }
 
-function veggieTakeHit(v, now) {
+// amount = puntos de vida que quita este golpe (ver meleeDamage/stompDamage
+// en combat.js). Si la deja a 0, entra en la secuencia de muerte de
+// siempre; si no, solo baja la barra de vida.
+function veggieTakeHit(v, now, amount) {
   if (!v.alive || v.state === 'death' || v.state === 'dormant') return;
+  if (!applyEnemyDamage(v, amount)) return;
   veggieSetState(v, now, 'death');
   Pickups.spawnHeartAt(v.x, v.groundY - CONFIG.PICKUP.GROUND_OFFSET, CONFIG.VEGGIE.HEART_HEAL);
 }
@@ -210,6 +218,10 @@ function drawVeggie(ctx, v, now, cameraX) {
   }
   ctx.drawImage(f.img, f.sx, f.sy, f.sw, f.sh, box.x, box.y, box.w, box.h);
   ctx.restore();
+
+  if (v.hpBarVisible && v.state !== 'death') {
+    drawEnemyHealthBar(ctx, box.x + box.w / 2, box.y - CONFIG.ENEMY_HEALTH_BAR.OFFSET_Y, v.hp / CONFIG.VEGGIE.MAX_HP);
+  }
 }
 
 // Comprueba el contacto Hero <-> verduras y resuelve pisotón vs. golpe
@@ -226,7 +238,7 @@ function checkVeggieCollision(now, player, groundY) {
 
     const stomping = player.vy > 0 && (pBox.y + pBox.h) < (vBox.y + vBox.h * 0.55);
     if (stomping) {
-      veggieTakeHit(v, now);
+      veggieTakeHit(v, now, stompDamage());
       player.vy = CONFIG.STOMP_BOUNCE;
       player.jumpOffset = -1;
       player.grounded = false;
@@ -250,6 +262,10 @@ function checkVeggieSwordHit(now, player, groundY) {
 
   Veggies.list.forEach((v) => {
     if (!v.active || !v.alive || v.state === 'death' || v.state === 'spawn') return;
-    if (rectsOverlap(atkBox, getVeggieBox(v, now))) veggieTakeHit(v, now);
+    if (v.lastSwordHitId === player.attackStart) return; // este tajo ya ha contado
+    if (rectsOverlap(atkBox, getVeggieBox(v, now))) {
+      v.lastSwordHitId = player.attackStart;
+      veggieTakeHit(v, now, meleeDamage(player));
+    }
   });
 }

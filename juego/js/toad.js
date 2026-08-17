@@ -6,8 +6,9 @@
 // 'freeRoam' llama a Toad.activate(now) y a partir de ahí este módulo lleva
 // su propia IA: patrulla cerca de su punto de entrada y, si Hero está a
 // tiro, ataca alternando hechizo (bala mágica a distancia) y aliento de
-// fuego (daño instantáneo de corto alcance), igual de flojo que una verdura
-// (muere de un solo golpe, espada o pisotón).
+// fuego (daño instantáneo de corto alcance); tiene una vida numérica
+// (TOAD.MAX_HP) que baja con cada golpe/pisotón (ver CONFIG.DAMAGE en
+// combat.js) hasta morir.
 const Toad = {
   x: 0,
   baseX: 0,
@@ -20,6 +21,10 @@ const Toad = {
   alive: true,
   state: 'idle', // idle | walk | cast | firebreath | death
   stateStart: 0,
+
+  hp: CONFIG.TOAD.MAX_HP,
+  hpBarVisible: false, // se enseña la barra de vida a partir del primer golpe recibido
+  lastSwordHitId: -Infinity, // player.attackStart del último tajo ya contado
 
   nextAttackAt: Infinity,
   attackKind: 'cast', // se alterna cast/firebreath en cada ataque
@@ -42,6 +47,9 @@ const Toad = {
     this.alive = true;
     this.state = 'idle';
     this.stateStart = 0;
+    this.hp = CONFIG.TOAD.MAX_HP;
+    this.hpBarVisible = false;
+    this.lastSwordHitId = -Infinity;
     this.nextAttackAt = Infinity;
     this.attackKind = 'cast';
     this.attackHit = false;
@@ -207,8 +215,12 @@ function getToadBox(now) {
   return getScaledBox(f.sw, f.sh, Toad.x, Toad.groundY, Toad.scale);
 }
 
-function toadTakeHit(now) {
+// amount = puntos de vida que quita este golpe (ver meleeDamage/stompDamage
+// en combat.js). Si la deja a 0, entra en la secuencia de muerte de
+// siempre; si no, solo baja la barra de vida.
+function toadTakeHit(now, amount) {
   if (!Toad.alive || !Toad.active || Toad.state === 'death') return;
+  if (!applyEnemyDamage(Toad, amount)) return;
   Toad.setState(now, 'death');
   Toad.bullets = [];
   Pickups.spawnHeartAt(Toad.x, Toad.groundY - CONFIG.PICKUP.GROUND_OFFSET, CONFIG.TOAD.HEART_HEAL);
@@ -234,6 +246,10 @@ function drawToad(ctx, now) {
   }
   ctx.drawImage(f.img, f.sx, f.sy, f.sw, f.sh, box.x, box.y, box.w, box.h);
   ctx.restore();
+
+  if (Toad.hpBarVisible && Toad.state !== 'death') {
+    drawEnemyHealthBar(ctx, box.x + box.w / 2, box.y - CONFIG.ENEMY_HEALTH_BAR.OFFSET_Y, Toad.hp / CONFIG.TOAD.MAX_HP);
+  }
 
   Toad.bullets.forEach((b) => drawToadBullet(ctx, b));
 }
@@ -262,6 +278,7 @@ function drawToadBullet(ctx, b) {
 function checkToadSwordHit(now, player) {
   if (!Toad.alive || !Toad.active || Toad.state === 'death') return;
   if (!player.attacking) return;
+  if (Toad.lastSwordHitId === player.attackStart) return; // este tajo ya ha contado
 
   const pBox = getBox(ASSETS.hero, player.x, Toad.groundY + player.jumpOffset, player.height);
   const reach = CONFIG.ATTACK.MELEE_REACH;
@@ -269,7 +286,10 @@ function checkToadSwordHit(now, player) {
     ? { x: pBox.x, y: pBox.y, w: pBox.w + reach, h: pBox.h }
     : { x: pBox.x - reach, y: pBox.y, w: pBox.w + reach, h: pBox.h };
 
-  if (rectsOverlap(atkBox, getToadBox(now))) toadTakeHit(now);
+  if (rectsOverlap(atkBox, getToadBox(now))) {
+    Toad.lastSwordHitId = player.attackStart;
+    toadTakeHit(now, meleeDamage(player));
+  }
 }
 
 // Pisotón (estilo Mario): igual que checkVeggieCollision/checkAntStomp, pero
@@ -285,7 +305,7 @@ function checkToadStomp(now, player) {
 
   const stomping = player.vy > 0 && (pBox.y + pBox.h) < (tBox.y + tBox.h * 0.55);
   if (stomping) {
-    toadTakeHit(now);
+    toadTakeHit(now, stompDamage());
     player.vy = CONFIG.STOMP_BOUNCE;
     player.jumpOffset = -1;
     player.grounded = false;

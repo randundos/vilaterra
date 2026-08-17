@@ -35,6 +35,9 @@ const Worms = {
         stateStart: now - restJitter,
         hopStart: 0,
         nextHopAt: now + CONFIG.WORM.HOP_EVERY_MS * (0.4 + Math.random() * 0.8), // saltitos también desfasados
+        hp: CONFIG.WORM.MAX_HP,
+        hpBarVisible: false,
+        lastSwordHitId: -Infinity,
         alive: true,
         active: true,
         deathAnimDone: false,
@@ -58,8 +61,12 @@ function wormSetState(worm, now, state) {
   worm.stateStart = now;
 }
 
-function wormTakeHit(worm, now) {
+// amount = puntos de vida que quita este golpe (ver meleeDamage/stompDamage
+// en combat.js). Si la deja a 0, entra en la secuencia de muerte de
+// siempre; si no, solo baja la barra de vida.
+function wormTakeHit(worm, now, amount) {
   if (!worm.alive || worm.state === 'death') return;
+  if (!applyEnemyDamage(worm, amount)) return;
   wormSetState(worm, now, 'death');
   Pickups.spawnBraceletsAt(
     worm.x,
@@ -175,6 +182,10 @@ function drawWorm(ctx, worm, now, cameraX) {
   }
   ctx.drawImage(img, box.x, box.y, box.w, box.h);
   ctx.restore();
+
+  if (worm.hpBarVisible && worm.state !== 'death') {
+    drawEnemyHealthBar(ctx, box.x + box.w / 2, box.y - CONFIG.ENEMY_HEALTH_BAR.OFFSET_Y, worm.hp / CONFIG.WORM.MAX_HP);
+  }
 }
 
 // Comprueba el contacto Hero <-> gusanos y resuelve pisotón vs. golpe
@@ -191,7 +202,7 @@ function checkWormCollision(now, player, groundY) {
 
     const stomping = player.vy > 0 && (pBox.y + pBox.h) < (wBox.y + wBox.h * 0.55);
     if (stomping) {
-      wormTakeHit(worm, now);
+      wormTakeHit(worm, now, stompDamage());
       player.vy = CONFIG.STOMP_BOUNCE;
       player.jumpOffset = -1;
       player.grounded = false;
@@ -215,6 +226,10 @@ function checkWormSwordHit(now, player, groundY) {
 
   Worms.list.forEach((worm) => {
     if (!worm.active || !worm.alive || worm.state === 'death') return;
-    if (rectsOverlap(atkBox, getWormBox(worm, now))) wormTakeHit(worm, now);
+    if (worm.lastSwordHitId === player.attackStart) return; // este tajo ya ha contado
+    if (rectsOverlap(atkBox, getWormBox(worm, now))) {
+      worm.lastSwordHitId = player.attackStart;
+      wormTakeHit(worm, now, meleeDamage(player));
+    }
   });
 }

@@ -39,7 +39,13 @@ const GrassBlade = {
   draw(ctx, now, groundY, cameraX) {
     if (this.state === 'gone') return;
     const box = this.getBox(groundY);
-    const baseX = box.x - cameraX + box.w / 2;
+    const screenX = box.x - cameraX;
+    // Una vez superado (pronto, hace falta pasar por aquí para conseguir la
+    // espada), se queda fuera de cámara el resto del tramo de hierba entero
+    // -> sin este cull se seguía dibujando cada frame con shadowBlur=18
+    // (caro) aunque no se viera nada en pantalla.
+    if (screenX + box.w < -30 || screenX > CONFIG.CANVAS_W + 30) return;
+    const baseX = screenX + box.w / 2;
     const baseY = box.y + box.h;
     // balanceo suave y constante (no solo al golpearlo) para que llame la
     // atención sobre el resto de la hierba del fondo
@@ -122,37 +128,51 @@ const Platforms = {
   }
 };
 
+// Misma textura que el suelo del nivel (ASSETS.bgGround: hierba arriba,
+// tierra debajo, ver drawParallaxLayer/drawLevelBackground en render.js), en
+// vez del gradiente marrón + "dientes" de hierba dibujados a mano de antes.
+// Se recorta con esquinas redondeadas (roundRect) para que la plataforma no
+// termine en un canto recto/abrupto, y se tilea horizontalmente por si la
+// plataforma es más ancha que un ciclo de la textura ya escalada.
 function drawPlatform(ctx, p, groundY, cameraX) {
   const screenX = p.x - cameraX;
   if (screenX + p.width < -20 || screenX > CONFIG.CANVAS_W + 20) return;
 
   const topY = groundY + p.top;
   const thickness = 22;
+  const radius = 8;
 
+  // Sombra suave debajo, como una forma sólida aparte del recorte de
+  // textura de más abajo (si se dibujara con shadowBlur activo mientras se
+  // tilea la imagen, cada trozo lanzaría su propia sombra).
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.35)';
   ctx.shadowBlur = 10;
   ctx.shadowOffsetY = 4;
-
-  const grad = ctx.createLinearGradient(0, topY, 0, topY + thickness);
-  grad.addColorStop(0, '#8a6a45');
-  grad.addColorStop(1, '#5c4529');
-  ctx.fillStyle = grad;
+  ctx.fillStyle = '#5c4529';
   ctx.beginPath();
-  ctx.roundRect(screenX, topY, p.width, thickness, 6);
+  ctx.roundRect(screenX, topY, p.width, thickness, radius);
   ctx.fill();
+  ctx.restore();
 
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
+  const img = ASSETS.bgGround;
+  if (!img.complete || img.width === 0) return;
 
-  // borde de hierba encima, para que encaje con el estilo del tramo
-  ctx.fillStyle = '#5fae32';
-  ctx.fillRect(screenX, topY - 4, p.width, 8);
-  ctx.fillStyle = '#8de35a';
-  for (let i = 4; i < p.width - 4; i += 10) {
-    const bladeH = 6 + (i % 3) * 3;
-    ctx.fillRect(screenX + i, topY - 4 - bladeH + 4, 3, bladeH);
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(screenX, topY, p.width, thickness, radius);
+  ctx.clip();
+
+  const scale = thickness / img.height;
+  const scaledW = img.width * scale;
+  // desplazamiento determinista (a partir de p.x) para que cada plataforma
+  // muestre un fragmento algo distinto de la textura, en vez de repetir
+  // siempre el mismo trozo
+  const offset = (p.x * 0.7) % scaledW;
+  let drawX = screenX - offset;
+  while (drawX < screenX + p.width) {
+    ctx.drawImage(img, drawX, topY, scaledW, thickness);
+    drawX += scaledW;
   }
   ctx.restore();
 }
@@ -185,10 +205,11 @@ const SwordPickup = {
       this.active = false;
       this.collected = true;
       player.hasSword = true;
+      player.weaponEquipped = 'sword'; // se equipa automáticamente al recogerla
       ItemPopup.show(
         now,
         ASSETS.sword,
-        "Has trobat una espasa dins d'un bri d'herba. Fes-la servir per acabar amb els que et volen parar els peus"
+        "Has trobat una espasa dins d'un bri d'herba. Fes-la servir per acabar amb els que et volen parar els peus. Prem E per atacar i Q per canviar entre l'espasa i els punys."
       );
     }
   },

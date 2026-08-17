@@ -16,6 +16,9 @@ const Boar = {
   deathAnimDone: false,
   fadeStart: 0,
   fadeAlpha: 1,
+  hp: CONFIG.BOAR.MAX_HP,
+  hpBarVisible: false, // se enseña la barra de vida a partir del primer golpe recibido
+  lastSwordHitId: -Infinity, // player.attackStart del último tajo ya contado (evita contar el mismo golpe varias veces)
 
   init(now, groundY) {
     this.baseX = CONFIG.BOAR.SPAWN_X;
@@ -28,6 +31,9 @@ const Boar = {
     this.active = true;
     this.deathAnimDone = false;
     this.fadeAlpha = 1;
+    this.hp = CONFIG.BOAR.MAX_HP;
+    this.hpBarVisible = false;
+    this.lastSwordHitId = -Infinity;
   },
 
   _setState(now, state) {
@@ -35,9 +41,13 @@ const Boar = {
     this.stateStart = now;
   },
 
-  // Lo llama la comprobación de colisión cuando el Hero le salta encima.
-  takeStomp(now) {
+  // Lo llama la comprobación de colisión (pisotón) o de espada/puños. amount
+  // = puntos de vida que quita este golpe (ver meleeDamage/stompDamage en
+  // combat.js). Si la deja a 0, entra en la secuencia hurt->death de
+  // siempre; si no, solo baja la barra de vida (sin cambiar de estado).
+  takeHit(now, amount) {
     if (!this.alive || this.state === 'hurt' || this.state === 'death') return;
+    if (!applyEnemyDamage(this, amount)) return;
     this._setState(now, 'hurt');
   },
 
@@ -138,6 +148,10 @@ const Boar = {
     }
     ctx.drawImage(img, box.x, box.y, box.w, box.h);
     ctx.restore();
+
+    if (this.hpBarVisible && this.state !== 'death') {
+      drawEnemyHealthBar(ctx, box.x + box.w / 2, box.y - CONFIG.ENEMY_HEALTH_BAR.OFFSET_Y, this.hp / CONFIG.BOAR.MAX_HP);
+    }
   }
 };
 
@@ -159,7 +173,7 @@ function checkBoarCollision(now, groundY) {
 
   const stomping = Player.vy > 0 && (pBox.y + pBox.h) < (bBox.y + bBox.h * 0.55);
   if (stomping) {
-    Boar.takeStomp(now);
+    Boar.takeHit(now, stompDamage());
     Player.vy = CONFIG.STOMP_BOUNCE;
     Player.jumpOffset = -1;
     Player.grounded = false;
@@ -177,6 +191,7 @@ function checkBoarSwordHit(now, player, groundY) {
   if (!Boar.active || !Boar.alive) return;
   if (Boar.state === 'hurt' || Boar.state === 'death') return;
   if (!player.attacking) return;
+  if (Boar.lastSwordHitId === player.attackStart) return; // este tajo ya ha contado
 
   const pBox = getBox(ASSETS.hero, player.x, groundY + player.jumpOffset, player.height);
   const reach = CONFIG.ATTACK.MELEE_REACH;
@@ -185,6 +200,7 @@ function checkBoarSwordHit(now, player, groundY) {
     : { x: pBox.x - reach, y: pBox.y, w: pBox.w + reach, h: pBox.h };
 
   if (rectsOverlap(atkBox, Boar.getBox())) {
-    Boar.takeStomp(now); // mismo estado hurt -> death que el pisotón
+    Boar.lastSwordHitId = player.attackStart;
+    Boar.takeHit(now, meleeDamage(player)); // mismo estado hurt -> death que el pisotón
   }
 }

@@ -22,7 +22,13 @@ const Player = {
   levelWidth: CONFIG.LEVEL_WIDTH, // main.js lo cambia según la zona activa
   pits: [],          // [{x, width}] tramos de MUNDO sin suelo; main.js lo rellena según la zona activa
   platforms: [],      // [{x, width, top}] plataformas flotantes (top = jumpOffset de su superficie, negativo); main.js lo rellena según la zona activa
-  hasSword: false,   // true tras recoger la espada en el tramo de hierba
+  hasSword: false,   // true tras recoger la espada en el tramo de hierba (para siempre, aunque no la lleve equipada)
+  // Qué arma se usa AHORA MISMO para animaciones/ataques: 'fists' hasta que
+  // se recoge la espada (que la equipa automáticamente), y a partir de ahí
+  // se puede alternar con la tecla Q (ver Input.onWeaponSwitch en main.js).
+  // Todo lo que antes miraba this.hasSword para elegir sets de animación
+  // (idle/andar/salto/ataque) ahora mira this.weaponEquipped === 'sword'.
+  weaponEquipped: 'fists', // 'fists' | 'sword'
   attacking: false,  // true durante la pose de ataque (clic izquierdo)
   attackStart: -Infinity,
   attackVariant: 'vertical', // 'vertical' | 'horizontal': cuál de las dos animaciones de espada toca esta vez (se sortea en attack())
@@ -74,7 +80,7 @@ const Player = {
     if (now - this.attackStart < CONFIG.ATTACK.COOLDOWN_MS) return;
     this.attacking = true;
     this.attackStart = now;
-    if (this.hasSword) this.attackVariant = Math.random() < 0.5 ? 'vertical' : 'horizontal';
+    if (this.weaponEquipped === 'sword') this.attackVariant = Math.random() < 0.5 ? 'vertical' : 'horizontal';
   },
 
   // Lo dispara main.js cuando Mac Arrons empieza a rociarlo con la manguera:
@@ -192,13 +198,17 @@ const Player = {
     // se usa el ciclo real de andar
     const usingWalkFrames = !attacking && !jumping && this.isWalking;
 
-    // con espada, el ataque reproduce una de las dos animaciones reales de 5
-    // frames (sorteada en attack()); sin espada, el puñetazo real de 4
-    // frames. Ambas ya llevan su propio movimiento dibujado, así que no
+    // con espada EQUIPADA, el ataque reproduce una de las dos animaciones
+    // reales de 5 frames (sorteada en attack()); a puñetazos, el golpe real
+    // de 4 frames. Ambas ya llevan su propio movimiento dibujado, así que no
     // hace falta ninguna estela superpuesta (ver más abajo, ya no se llama).
+    // Nótese que se mira this.weaponEquipped (arma ACTIVA ahora mismo, se
+    // puede alternar con Q una vez se tiene la espada), no this.hasSword
+    // (que solo indica si la espada se ha recogido alguna vez).
+    const swordEquipped = this.weaponEquipped === 'sword';
     let img;
     if (attacking) {
-      if (this.hasSword) {
+      if (swordEquipped) {
         const set = this.attackVariant === 'horizontal' ? ASSETS.heroAttackHorizontal : ASSETS.heroAttackVertical;
         const frameMs = CONFIG.ATTACK.DURATION_MS / CONFIG.ATTACK.SWORD_FRAME_COUNT;
         const idx = Math.min(CONFIG.ATTACK.SWORD_FRAME_COUNT - 1, Math.floor((now - this.attackStart) / frameMs));
@@ -209,20 +219,20 @@ const Player = {
         img = ASSETS.heroAttackPunch[idx] || ASSETS.heroAttackPunch[0] || ASSETS.hero;
       }
     } else if (jumping) {
-      const jumpSet = this.hasSword ? ASSETS.heroJumpSword : ASSETS.heroJump;
+      const jumpSet = swordEquipped ? ASSETS.heroJumpSword : ASSETS.heroJump;
       const idx = pickJumpFrame(this.vy);
-      img = jumpSet[idx] || (this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero);
+      img = jumpSet[idx] || (swordEquipped ? ASSETS.heroSwordIdle : ASSETS.hero);
     } else if (usingWalkFrames) {
-      const walkSet = this.hasSword ? ASSETS.heroWalkSword : ASSETS.heroWalk;
+      const walkSet = swordEquipped ? ASSETS.heroWalkSword : ASSETS.heroWalk;
       // orden natural 0..N-1: los frames alternan zancada/paso-cruzado en
       // ese orden (lo que parecía "al revés" antes era el volteo izq/dcha,
       // ya corregido más arriba, no el orden de los frames)
       const idx = walkSet.length ? Math.floor(t / CONFIG.HERO_WALK_FRAME_MS) % walkSet.length : -1;
-      img = walkSet[idx] || (this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero);
+      img = walkSet[idx] || (swordEquipped ? ASSETS.heroSwordIdle : ASSETS.hero);
     } else {
-      // de pie: si ya tiene la espada, se usa directamente la imagen
+      // de pie: si la espada está equipada, se usa directamente la imagen
       // completa armada (no hace falta superponer nada)
-      img = this.hasSword ? ASSETS.heroSwordIdle : ASSETS.hero;
+      img = swordEquipped ? ASSETS.heroSwordIdle : ASSETS.hero;
     }
 
     const box = getBox(img, this.x - cameraX, groundY + this.jumpOffset, this.height);
@@ -235,7 +245,7 @@ const Player = {
     // hacia la derecha. Antes esto no distinguía la pose de pie CON espada
     // (que en realidad ya mira a la derecha) y por eso, parado con espada,
     // Hero se quedaba mirando a la izquierda aunque viniera de la derecha.
-    const naturallyFacesRight = jumping || usingWalkFrames || attacking || this.hasSword;
+    const naturallyFacesRight = jumping || usingWalkFrames || attacking || swordEquipped;
     const shouldFlip = naturallyFacesRight ? this.facing === 'left' : this.facing === 'right';
 
     ctx.save();

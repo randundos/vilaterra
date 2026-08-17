@@ -45,6 +45,19 @@ Input.onAction = () => {
     Player.attack(now);
   }
 };
+// tecla Q: alterna espada/puños. Solo tiene efecto una vez se ha recogido
+// la espada (Player.hasSword), con las mismas guardas que el ataque/salto
+// (nada de cambiar de arma en mitad de un diálogo, popup, muerte, etc.) y
+// nunca a media animación de ataque, para que no se note un salto raro de
+// frame.
+Input.onWeaponSwitch = () => {
+  const canSwitch = Player.hasSword && !Player.attacking && !Dialogue.active && !macSprayPhase && !deathPhase && !ItemPopup.active;
+  if ((mode === 'gameplay' || mode === 'small' || mode === 'small2') && canSwitch && Bird.state !== 'captured') {
+    Player.weaponEquipped = Player.weaponEquipped === 'sword' ? 'fists' : 'sword';
+  } else if (mode === 'officescene' && OfficeScene.phase === 'freeRoam' && canSwitch) {
+    Player.weaponEquipped = Player.weaponEquipped === 'sword' ? 'fists' : 'sword';
+  }
+};
 Input.onMenuUp = () => { if (mode === 'cutscene') Cutscene.handleMenuUp(); };
 Input.onMenuDown = () => { if (mode === 'cutscene') Cutscene.handleMenuDown(); };
 Input.init();
@@ -234,6 +247,7 @@ function restartSmallWorld(now) {
   Player.health = CONFIG.HERO_MAX_HEALTH;
   Player.bracelets = 0;
   Player.hasSword = false;
+  Player.weaponEquipped = 'fists';
   Pickups.items = [];
   ItemPopup.dismiss();
   caveTransition = null; // por si acaso, aunque no debería poder morir en mitad del corte a negro
@@ -418,6 +432,7 @@ function draw(t) {
     Pickups.draw(ctx, now, Camera.x); // corazones que sueltan las verduras
     drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
     drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
+    if (Player.hasSword) drawWeaponIndicator(ctx, canvas.height, Player.weaponEquipped);
     if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
     drawFadeOverlay(ctx, canvas.width, canvas.height, caveTransitionAlpha(now));
     if (Bird.captureSub === 'fade') {
@@ -442,6 +457,7 @@ function draw(t) {
     Dialogue.draw(ctx, getSpeakerBox);
     drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
     drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
+    if (Player.hasSword) drawWeaponIndicator(ctx, canvas.height, Player.weaponEquipped);
     if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
     if (ItemPopup.active) drawItemPopup(ctx, now, canvas.width, canvas.height, ItemPopup);
     drawFadeOverlay(ctx, canvas.width, canvas.height, caveTransitionAlpha(now));
@@ -458,6 +474,7 @@ function draw(t) {
 
   drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
   drawBraceletCounter(ctx, canvas.width, canvas.height, Player.bracelets);
+  if (Player.hasSword) drawWeaponIndicator(ctx, canvas.height, Player.weaponEquipped);
   if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
 }
 
@@ -521,6 +538,7 @@ if (CONFIG.DEBUG) {
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
+      Player.weaponEquipped = 'sword';
       Player.x = CONFIG.ANT.SPAWNS[0] - 150;
     } else if (e.key === '4') {
       // reinicia el nivel 1 del todo, desde el principio
@@ -538,6 +556,7 @@ if (CONFIG.DEBUG) {
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
+      Player.weaponEquipped = 'sword';
       Player.x = CONFIG.SMALL_WORLD.PITS[0].x - 60;
     } else if (e.key === '7') {
       // justo antes del jefe Talp (final del tramo), con espada
@@ -545,6 +564,7 @@ if (CONFIG.DEBUG) {
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
+      Player.weaponEquipped = 'sword';
       Player.x = CONFIG.TALP.GUARD_X - CONFIG.TALP.WAKE_DISTANCE - 30;
     } else if (e.key === '8') {
       // justo antes del gusano, con espada
@@ -552,6 +572,7 @@ if (CONFIG.DEBUG) {
       startSmallWorld(now);
       GrassBlade.state = 'gone';
       Player.hasSword = true;
+      Player.weaponEquipped = 'sword';
       Player.x = CONFIG.WORM.SPAWNS[0] - 150;
     } else if (e.key === '9') {
       // nivel 2 parte 2, al otro lado de la cueva (Talp ya "derrotado")
@@ -560,6 +581,7 @@ if (CONFIG.DEBUG) {
       startSmallWorld(now); // por si se necesita volver atrás con '6'/'7'/'8' después
       Talp.defeated = true;
       Player.hasSword = true;
+      Player.weaponEquipped = 'sword';
       startSmallWorld2(now);
     } else if (e.key === '0') {
       // justo antes del pájaro, en nivel 2 parte 2
@@ -568,6 +590,7 @@ if (CONFIG.DEBUG) {
       startSmallWorld(now);
       Talp.defeated = true;
       Player.hasSword = true;
+      Player.weaponEquipped = 'sword';
       startSmallWorld2(now);
       Player.x = CONFIG.BIRD.SPAWN_X - CONFIG.BIRD.WAKE_DISTANCE - 30;
     } else if (e.key === 'p') {

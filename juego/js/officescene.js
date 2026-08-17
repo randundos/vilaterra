@@ -389,6 +389,7 @@ const OfficeScene = {
     if (this.phase === 'freeRoam') {
       drawHealthBar(ctx, Player.health / CONFIG.HERO_MAX_HEALTH);
       drawBraceletCounter(ctx, CONFIG.CANVAS_W, CONFIG.CANVAS_H, Player.bracelets);
+      if (Player.hasSword) drawWeaponIndicator(ctx, CONFIG.CANVAS_H, Player.weaponEquipped);
       if (deathPhase) drawDeathOverlay(ctx, now, deathStart);
     }
 

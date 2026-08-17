@@ -61,6 +61,105 @@ function drawBraceletCounter(ctx, canvasW, canvasH, count) {
   ctx.restore();
 }
 
+// Ranura de "arma activa" (tecla Q, ver Input.onWeaponSwitch/main.js): un
+// recuadro anclado a la esquina inferior izquierda con la espada (reutiliza
+// ASSETS.sword, el mismo icono del pickup) o unos puños (dibujados a mano,
+// no hay sprite dedicado) según Player.weaponEquipped. Solo se llama a esto
+// una vez Player.hasSword es true (antes de recogerla no hay nada que
+// mostrar: siempre son los puños).
+function drawWeaponIndicator(ctx, canvasH, weaponEquipped) {
+  const { MARGIN, WEAPON_BOX_SIZE: size } = CONFIG.HUD;
+  const x = MARGIN;
+  const y = canvasH - MARGIN - size;
+  const pad = 9;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(20, 16, 28, 0.72)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.lineWidth = 2;
+  drawRoundRect(ctx, x, y, size, size, 8);
+  ctx.fill();
+  ctx.stroke();
+
+  if (weaponEquipped === 'sword') {
+    const img = ASSETS.sword;
+    if (img.complete && img.width > 0) {
+      const availH = size - pad * 2;
+      const w = img.width * (availH / img.height);
+      ctx.drawImage(img, x + (size - w) / 2, y + pad, w, availH);
+    }
+  } else {
+    drawFistIcon(ctx, x + size / 2, y + size / 2, size - pad * 2);
+  }
+  ctx.restore();
+}
+
+function drawRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Icono de puño plano (sin sprite propio): muñeca + círculo con tres marcas
+// de nudillo, mismo estilo de trazo grueso que el resto del HUD.
+function drawFistIcon(ctx, cx, cy, size) {
+  const skin = '#e0a878';
+  const outline = '#3a2418';
+  const r = size * 0.36;
+
+  ctx.save();
+  ctx.fillStyle = skin;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 2.5;
+
+  ctx.beginPath();
+  ctx.rect(cx - size * 0.16, cy + r * 0.35, size * 0.32, size * 0.34);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy - size * 0.04, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.lineWidth = 1.6;
+  [-0.55, -0.05, 0.45].forEach((fx) => {
+    ctx.beginPath();
+    ctx.moveTo(cx + r * fx, cy - r * 0.1);
+    ctx.lineTo(cx + r * fx, cy - r * 0.75);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// Barra de vida de un enemigo (roja sobre negro), flotando encima de su
+// caja de colisión: en negro la vida total, en rojo la que le queda. Se
+// llama con coordenadas ya en PANTALLA (cámara ya restada si aplica),
+// centrada horizontalmente en "cx", con el borde inferior en "bottomY"
+// (normalmente justo encima de la cabeza del enemigo, ver ENEMY_HEALTH_BAR.
+// OFFSET_Y). Cada enemigo decide cuándo llamarla: solo a partir del primer
+// golpe recibido (hpBarVisible) y nunca una vez muerto.
+function drawEnemyHealthBar(ctx, cx, bottomY, hpFraction) {
+  const { WIDTH, HEIGHT } = CONFIG.ENEMY_HEALTH_BAR;
+  const x = cx - WIDTH / 2;
+  const y = bottomY - HEIGHT;
+  const pct = Math.max(0, Math.min(1, hpFraction));
+
+  ctx.save();
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x, y, WIDTH, HEIGHT);
+  ctx.fillStyle = '#d81f1f';
+  ctx.fillRect(x, y, WIDTH * pct, HEIGHT);
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, WIDTH - 1, HEIGHT - 1);
+  ctx.restore();
+}
+
 // Pantalla de muerte estilo Dark Souls: fondo oscurecido + "Has Fallat" en
 // rojo oscuro, con dos líneas finas arriba y abajo, apareciendo poco a poco.
 function drawDeathOverlay(ctx, now, deathStart) {

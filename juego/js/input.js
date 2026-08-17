@@ -9,6 +9,7 @@ const Input = {
   onAction: null,  // tecla E: avanzar diálogo / confirmar, o atacar en jugabilidad (con espada si la tiene, si no un golpe)
   onMenuUp: null,  // flecha arriba: mover selector hacia arriba
   onMenuDown: null, // flecha abajo: mover selector hacia abajo
+  onWeaponSwitch: null, // tecla Q: alterna espada/puños (solo tiene efecto una vez se ha recogido la espada, ver main.js)
 
   init() {
     window.addEventListener('keydown', (e) => {
@@ -18,6 +19,9 @@ const Input = {
 
       if (k === 'e' && !e.repeat) {
         if (this.onAction) this.onAction();
+      }
+      if (k === 'q' && !e.repeat) {
+        if (this.onWeaponSwitch) this.onWeaponSwitch();
       }
       if (k === 'arrowup' && !e.repeat) {
         e.preventDefault(); // evita que la página haga scroll

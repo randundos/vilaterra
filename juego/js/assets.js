@@ -2,7 +2,7 @@
 // ASSET_V se añade como query string a cada imagen para evitar que el
 // navegador sirva una versión vieja cacheada de un archivo que hemos
 // sustituido en disco (mismo nombre de archivo, contenido nuevo).
-const ASSET_V = 25;
+const ASSET_V = 26;
 function withV(path) {
   return `${path}?v=${ASSET_V}`;
 }

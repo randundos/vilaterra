@@ -1,12 +1,13 @@
 // Pájaro (puput): jefe final del nivel 2 parte 2 (ver CONFIG.BIRD). NO se le
-// puede matar (es invulnerable a la espada/puñetazo), pero SÍ cuentan los
-// golpes de Hero que conectan (ver checkBirdSwordHit/Bird.flinch): al llegar
-// al 5º golpe (HITS_TO_CAPTURE), en vez de seguir atacando agarra a Hero y se
-// lo lleva volando (ver updateCapture/drawCapture, una pequeña cinemática en
-// varias fases: grab -> rise -> exit -> fade), dando paso a PoolScene (ver
-// poolscene.js), la apertura del nivel 3. El pájaro también ataca de
-// verdad y hace daño normal si conecta, pero eso NO cuenta para la captura -
-// solo es la amenaza real del combate mientras Hero intenta darle sus 5 golpes.
+// puede matar de verdad, pero sí tiene vida numérica (hp/MAX_HP, igual que
+// el resto de enemigos, ver combat.js) que baja con los golpes de Hero que
+// conectan (ver checkBirdSwordHit/Bird.flinch): al llegar a 0, en vez de
+// morir agarra a Hero y se lo lleva volando (ver updateCapture/drawCapture,
+// una pequeña cinemática en varias fases: grab -> rise -> exit -> fade),
+// dando paso a PoolScene (ver poolscene.js), la apertura del nivel 3. El
+// pájaro también ataca de verdad y hace daño normal si conecta, pero eso NO
+// resta su propia vida - solo es la amenaza real del combate mientras Hero
+// intenta acabar con la suya.
 // Mientras vuela (dormant/active/captured) usa el ciclo real de aleteo de 4
 // frames (ASSETS.bird.flap, ver CONFIG.BIRD.FLAP_FRAME_MS); al atacar cambia
 // a la pose fija de picotazo (ASSETS.bird.attack). Cada frame del aleteo está
@@ -25,7 +26,8 @@ const Bird = {
   state: 'dormant', // dormant | active | attack | captured
   stateStart: 0,
   active: false,
-  hitsLanded: 0, // golpes de Hero que han conectado (NO los que da el pájaro)
+  hp: CONFIG.BIRD.MAX_HP,
+  hpBarVisible: false, // se enseña la barra de vida a partir del primer golpe recibido
   lastSwordHitSwing: -1, // player.attackStart del último tajo ya contado, para no contar el mismo swing varias veces (checkBirdSwordHit se llama cada frame mientras dura la animación de ataque)
   nextAttackAt: 0,
   attackHit: false,
@@ -49,7 +51,8 @@ const Bird = {
     this.state = 'dormant';
     this.stateStart = now;
     this.active = false;
-    this.hitsLanded = 0;
+    this.hp = CONFIG.BIRD.MAX_HP;
+    this.hpBarVisible = false;
     this.lastSwordHitSwing = -1;
     this.nextAttackAt = 0;
     this.attackHit = false;
@@ -232,15 +235,19 @@ const Bird = {
     }
     ctx.drawImage(img, box.x, box.y, box.w, box.h);
     ctx.restore();
+
+    if (this.hpBarVisible && this.state !== 'captured') {
+      drawEnemyHealthBar(ctx, box.x + box.w / 2, box.y - CONFIG.ENEMY_HEALTH_BAR.OFFSET_Y, this.hp / CONFIG.BIRD.MAX_HP);
+    }
   }
 };
 
-// Comprueba si el golpe de espada/puñetazo de Hero alcanza al pájaro: no lo
-// mata (es invulnerable), pero SÍ cuenta como uno de los golpes hacia la
-// captura (ver Bird.hitsLanded/HITS_TO_CAPTURE). player.attacking se queda a
-// true durante TODA la animación del tajo, así que esta función se llama
-// muchas veces por swing; lastSwordHitSwing evita contar el mismo golpe más
-// de una vez (cada swing tiene su propio player.attackStart).
+// Comprueba si el golpe de espada/puñetazo de Hero alcanza al pájaro: baja
+// su vida numérica (ver Bird.hp/MAX_HP, meleeDamage en combat.js) igual que
+// el resto de enemigos, aunque nunca "muere" del todo. player.attacking se
+// queda a true durante TODA la animación del tajo, así que esta función se
+// llama muchas veces por swing; lastSwordHitSwing evita contar el mismo
+// golpe más de una vez (cada swing tiene su propio player.attackStart).
 function checkBirdSwordHit(now, player, groundY) {
   if (!Bird.active || Bird.state === 'dormant' || Bird.state === 'captured') return;
   if (!player.attacking) return;
@@ -256,8 +263,7 @@ function checkBirdSwordHit(now, player, groundY) {
 
     if (Bird.lastSwordHitSwing !== player.attackStart) {
       Bird.lastSwordHitSwing = player.attackStart;
-      Bird.hitsLanded++;
-      if (Bird.hitsLanded >= CONFIG.BIRD.HITS_TO_CAPTURE) {
+      if (applyEnemyDamage(Bird, meleeDamage(player))) {
         Bird._setState(now, 'captured');
         // durante el combate "facing" cambia según de qué lado venga Hero, y
         // se queda congelado al entrar en 'captured' (update() ya no lo

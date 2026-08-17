@@ -25,8 +25,15 @@ const Mac = {
     // por debajo que la pose de pie)
     const yOffset = this.spraying ? CONFIG.MAC_SPRAY.Y_OFFSET : 0;
     const box = getBox(img, this.x - cameraX, groundY + yOffset, this.height);
+    this._box = box; // se guarda para anclar el diálogo por encima de él (aunque esté fuera de pantalla)
+
+    // Mac está fijo en CONFIG.MAC_X, bastante más allá del punto de partida
+    // del nivel 1: sin este cull se seguía dibujando (con el coste del doble
+    // clip de drawWalking) todos los frames aunque estuviera fuera de
+    // cámara, durante buena parte del nivel.
+    if (box.x + box.w < -20 || box.x > CONFIG.CANVAS_W + 20) return box;
+
     drawWalking(ctx, img, box, this.hipFraction, t, false, true);
-    this._box = box; // se guarda para anclar el diálogo por encima de él
     return box;
   },
 

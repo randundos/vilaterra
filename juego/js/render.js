@@ -37,11 +37,26 @@ function getScaledBox(frameW, frameH, centerX, groundYPos, scale) {
 // de animación reales).
 function drawWalking(ctx, img, box, hipFraction, t, walking, idleBreath = true) {
   const { x, y, w, h } = box;
+
+  if (!walking) {
+    // Quieto: no hace falta partir el sprite en torso/piernas (ese recorte
+    // solo hace falta para que las piernas giren en contrafase al andar,
+    // ver más abajo) -> un único drawImage sin clip, con el pequeño vaivén
+    // de "respirar" aplicado a todo el cuerpo. Antes esto eran 2 clips + 2
+    // drawImage completos por frame para un efecto que a 1.5px de amplitud
+    // es casi idéntico a simple vista; era, con diferencia, el dibujo más
+    // repetido del juego (Hero y Mac están quietos la mayor parte del
+    // tiempo), así que este es el ahorro con más impacto en el rendimiento
+    // general.
+    const bob = idleBreath ? Math.sin(t * 0.0025) * 1.5 : 0;
+    ctx.drawImage(img, x, y + bob, w, h);
+    return;
+  }
+
   const hipY = y + h * hipFraction;
   const bodyH = hipY - y;
   const legH = (y + h) - hipY;
-
-  const bob = walking ? Math.sin(t * 0.018) * 3 : (idleBreath ? Math.sin(t * 0.0025) * 1.5 : 0);
+  const bob = Math.sin(t * 0.018) * 3;
 
   ctx.save();
 
@@ -53,7 +68,7 @@ function drawWalking(ctx, img, box, hipFraction, t, walking, idleBreath = true) 
   ctx.drawImage(img, x, y + bob, w, h);
   ctx.restore();
 
-  if (walking) {
+  {
     // --- piernas: dos mitades que giran en contrafase alrededor de la cadera ---
     const legAngle = Math.sin(t * 0.022) * 0.30;
 
@@ -76,13 +91,6 @@ function drawWalking(ctx, img, box, hipFraction, t, walking, idleBreath = true) 
     ctx.translate(pivotRX, hipY);
     ctx.rotate(-legAngle);
     ctx.translate(-pivotRX, -hipY);
-    ctx.drawImage(img, x, y, w, h);
-    ctx.restore();
-  } else {
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x - 4, hipY - 2, w + 8, legH + 12);
-    ctx.clip();
     ctx.drawImage(img, x, y, w, h);
     ctx.restore();
   }
@@ -162,58 +170,32 @@ function drawLevelBackground(ctx, cameraX) {
   drawPit(ctx, { x: CONFIG.PIT.X, width: CONFIG.PIT.WIDTH }, cameraX, groundY, groundH, ASSETS.bgSky, CONFIG.PARALLAX_SKY_FACTOR);
 }
 
-// Hueco sin suelo: en vez de un agujero negro plano, se recorta una silueta
-// irregular (como tierra rota) y DENTRO de ese recorte se vuelve a pintar la
-// propia capa de fondo (cielo/hierba), estirada hacia abajo -> da la
-// sensación de que ahí simplemente se acaba la tierra y se ve a través,
-// hacia el fondo, en vez de caer a un vacío negro. Un borde y una sombra muy
-// sutiles marcan el canto roto para que se note dónde deja de haber suelo.
-// El desnivel de los dientes es determinista (basado en pit.x) para que no
-// tiemble entre frames ni se repita igual en cada agujero. Se usa tanto para
-// el del nivel 1 como para los del tramo de hierba (drawSmallWorldBackground).
+// Hueco sin suelo: en vez de un agujero negro plano, se recorta un hueco con
+// las dos esquinas de arriba redondeadas (donde la tierra "empieza" y
+// "acaba") y DENTRO de ese recorte se vuelve a pintar la propia capa de
+// fondo (cielo/hierba), estirada hacia abajo -> da la sensación de que ahí
+// simplemente se acaba la tierra y se ve a través, hacia el fondo, en vez de
+// caer a un vacío negro. Sin ningún borde/línea marcando el corte (antes
+// había un zigzag + una línea oscura recorriendo el canto, que quedaba
+// demasiado marcado): el propio contraste entre el suelo y el fondo que se
+// asoma detrás ya deja claro que ahí no hay suelo. Se usa tanto para el del
+// nivel 1 como para los del tramo de hierba (drawSmallWorldBackground).
 function drawPit(ctx, pit, cameraX, groundY, groundH, bgImage, bgFactor) {
   const screenX = pit.x - cameraX;
   if (screenX + pit.width < -20 || screenX > CONFIG.CANVAS_W + 20) return;
 
-  const teeth = Math.max(3, Math.round(pit.width / 90));
-  const toothW = pit.width / teeth;
-  const jagPoints = [];
-  for (let i = 0; i <= teeth; i++) {
-    const tx = screenX + i * toothW;
-    const jag = (i % 2 === 0 ? 1 : -1) * (4 + ((pit.x + i * 37) % 6));
-    jagPoints.push({ x: tx, y: groundY + jag });
-  }
+  const cornerR = Math.min(18, pit.width / 2, groundH / 2);
 
   ctx.save();
   ctx.beginPath();
-  ctx.moveTo(screenX, groundY + groundH);
-  ctx.lineTo(screenX, groundY);
-  jagPoints.forEach((p) => ctx.lineTo(p.x, p.y));
-  ctx.lineTo(screenX + pit.width, groundY);
-  ctx.lineTo(screenX + pit.width, groundY + groundH);
-  ctx.closePath();
+  // esquinas redondeadas solo arriba (donde se ve el corte de tierra); abajo
+  // da igual, queda fuera de pantalla
+  ctx.roundRect(screenX, groundY, pit.width, groundH, [cornerR, cornerR, 0, 0]);
   ctx.clip();
 
   // el fondo, estirado para cubrir también la franja que normalmente ocupa
   // el suelo -> solo se ve dentro del recorte de arriba
   drawParallaxLayer(ctx, bgImage, CONFIG.CANVAS_W, 0, groundY + groundH, cameraX, bgFactor, false);
-
-  // sombra muy suave pegada al borde roto, solo para dar algo de
-  // profundidad (nada de negro sólido)
-  const edgeGrad = ctx.createLinearGradient(0, groundY - 6, 0, groundY + 30);
-  edgeGrad.addColorStop(0, 'rgba(30, 22, 14, 0.5)');
-  edgeGrad.addColorStop(1, 'rgba(30, 22, 14, 0)');
-  ctx.fillStyle = edgeGrad;
-  ctx.fillRect(screenX, groundY - 6, pit.width, 36);
-  ctx.restore();
-
-  // silueta del canto de tierra roto, para que se note el borde contra el fondo
-  ctx.save();
-  ctx.strokeStyle = 'rgba(60, 45, 28, 0.9)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  jagPoints.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-  ctx.stroke();
   ctx.restore();
 }
 

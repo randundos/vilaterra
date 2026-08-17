@@ -7,8 +7,9 @@
 // (1,5s) — agresivo, pero sin encadenar golpes sin descanso. Quieto sin nada
 // que hacer usa IDLE. Su cuerpo es sólido a su alrededor (ver blockTalpBody)
 // pero no por encima (se le puede saltar); aun así hay que derrotarlo
-// (pisotón o espada, 6 golpes) para poder cruzar la cueva, porque su propia
-// boca tiene una barrera aparte mientras siga vivo (ver cave.js). Al morir
+// (pisotón o espada, vida numérica MAX_HP = 55, ver CONFIG.TALP/combat.js)
+// para poder cruzar la cueva, porque su propia boca tiene una barrera
+// aparte mientras siga vivo (ver cave.js). Al morir
 // reproduce el ciclo de DEATH hundiéndose, se queda quieto en el último
 // frame y se desvanece, sin dejar ningún agujero.
 const Talp = {
@@ -20,7 +21,8 @@ const Talp = {
   state: 'dormant', // dormant | emerge | taunt | idle | move | attack | hurt | death
   stateStart: 0,
   active: false,    // false mientras está "dormant" (dentro de la cueva, sin colisión ni dibujo)
-  hitsTaken: 0,
+  hp: CONFIG.TALP.MAX_HP,
+  hpBarVisible: false, // se enseña la barra de vida a partir del primer golpe recibido
   nextAttackAt: 0,
   attackHit: false, // si ya se ha aplicado el daño del ataque en curso
   lastSwordHitId: -Infinity, // player.attackStart del último golpe de espada ya contado (evita contar el mismo tajo varias veces)
@@ -37,7 +39,8 @@ const Talp = {
     this.state = 'dormant';
     this.stateStart = now;
     this.active = false;
-    this.hitsTaken = 0;
+    this.hp = CONFIG.TALP.MAX_HP;
+    this.hpBarVisible = false;
     this.nextAttackAt = 0;
     this.attackHit = false;
     this.lastSwordHitId = -Infinity;
@@ -58,14 +61,14 @@ const Talp = {
            this.state === 'attack' || this.state === 'hurt';
   },
 
-  // Lo llama el pisotón o el golpe de espada. Cuenta como un golpe más;
-  // al llegar a HITS_TO_KILL empieza la secuencia de muerte.
-  takeHit(now) {
+  // Lo llama el pisotón o el golpe de espada. amount = puntos de vida que
+  // quita este golpe concreto (ver meleeDamage/stompDamage en combat.js);
+  // al llegar a 0 empieza la secuencia de muerte, si no, un breve "hurt".
+  takeHit(now, amount) {
     if (!this.active) return;
     if (this.state === 'dormant' || this.state === 'emerge' || this.state === 'taunt' || this.state === 'death') return;
 
-    this.hitsTaken++;
-    if (this.hitsTaken >= CONFIG.TALP.HITS_TO_KILL) {
+    if (applyEnemyDamage(this, amount)) {
       this._setState(now, 'death');
       this.deathFadeStart = 0;
       Pickups.spawnBraceletsAt(this.x, this.groundY - CONFIG.PICKUP.GROUND_OFFSET, CONFIG.TALP.BRACELET_REWARD);
@@ -142,10 +145,12 @@ const Talp = {
 
     if (this.state === 'emerge') {
       // camina desde la boca de la cueva (CAVE_X) hasta su puesto de
-      // guardia (GUARD_X), al mismo ritmo que al perseguir (ver WALK)
+      // guardia (GUARD_X) a EMERGE_SPEED, bastante más rápido que su ritmo
+      // normal de persecución (SPEED), para que salga del agujero de golpe
+      // en vez de asomar despacio.
       const dir = C.GUARD_X >= C.CAVE_X ? 1 : -1;
       this.facing = dir < 0 ? 'left' : 'right';
-      this.x += C.SPEED * dir;
+      this.x += C.EMERGE_SPEED * dir;
       if ((dir > 0 && this.x >= C.GUARD_X) || (dir < 0 && this.x <= C.GUARD_X)) {
         this.x = C.GUARD_X;
         this._setState(now, 'taunt');
@@ -249,6 +254,10 @@ const Talp = {
     }
     ctx.drawImage(img, box.x, box.y, box.w, box.h);
     ctx.restore();
+
+    if (this.hpBarVisible && this.state !== 'death') {
+      drawEnemyHealthBar(ctx, box.x + box.w / 2, box.y - CONFIG.ENEMY_HEALTH_BAR.OFFSET_Y, this.hp / CONFIG.TALP.MAX_HP);
+    }
   }
 };
 
@@ -288,7 +297,7 @@ function checkTalpCollision(now, player, groundY) {
 
   const stomping = player.vy > 0 && (pBox.y + pBox.h) < (tBox.y + tBox.h * 0.55);
   if (stomping) {
-    Talp.takeHit(now);
+    Talp.takeHit(now, stompDamage());
     player.vy = CONFIG.STOMP_BOUNCE;
     player.jumpOffset = -1;
     player.grounded = false;
@@ -317,6 +326,6 @@ function checkTalpSwordHit(now, player, groundY) {
 
   if (rectsOverlap(atkBox, Talp.getBox())) {
     Talp.lastSwordHitId = player.attackStart;
-    Talp.takeHit(now);
+    Talp.takeHit(now, meleeDamage(player));
   }
 }

@@ -18,6 +18,9 @@ const Ants = {
       active: true,
       state: 'alive', // alive | hit | dead
       hitAt: 0,
+      hp: CONFIG.ANT.MAX_HP,
+      hpBarVisible: false, // se enseña la barra de vida a partir del primer golpe recibido
+      lastSwordHitId: -Infinity, // player.attackStart del último tajo ya contado (evita contar el mismo golpe varias veces)
       fireNext: Infinity,
       hasAppeared: false, // true en cuanto entra en pantalla por primera vez: hasta entonces no dispara
       bullets: [],
@@ -40,8 +43,12 @@ function getAntBox(ant) {
   return getBox(ASSETS.ant, ant.x, ant.groundY, ant.height);
 }
 
-function antHit(ant, now) {
+// amount = puntos de vida que quita este golpe concreto (ver
+// meleeDamage/stompDamage en combat.js). Si la deja a 0, entra en la
+// secuencia de muerte de siempre; si no, solo baja la barra de vida.
+function antHit(ant, now, amount) {
   if (ant.state !== 'alive') return;
+  if (!applyEnemyDamage(ant, amount)) return;
   ant.state = 'hit';
   ant.hitAt = now;
 }
@@ -133,6 +140,10 @@ function drawAnt(ctx, ant, now, cameraX) {
   }
   ctx.restore();
 
+  if (ant.hpBarVisible && ant.state === 'alive') {
+    drawEnemyHealthBar(ctx, box.x + box.w / 2, box.y - CONFIG.ENEMY_HEALTH_BAR.OFFSET_Y, ant.hp / CONFIG.ANT.MAX_HP);
+  }
+
   ant.bullets.forEach((b) => drawBullet(ctx, b, cameraX));
 }
 
@@ -174,7 +185,11 @@ function checkAntSwordHit(now, player, groundY) {
 
   Ants.list.forEach((ant) => {
     if (!ant.active || ant.state !== 'alive') return;
-    if (rectsOverlap(atkBox, getAntBox(ant))) antHit(ant, now);
+    if (ant.lastSwordHitId === player.attackStart) return; // este tajo ya ha contado
+    if (rectsOverlap(atkBox, getAntBox(ant))) {
+      ant.lastSwordHitId = player.attackStart;
+      antHit(ant, now, meleeDamage(player));
+    }
   });
 }
 
@@ -192,7 +207,7 @@ function checkAntStomp(now, player, groundY) {
 
     const stomping = player.vy > 0 && (pBox.y + pBox.h) < (aBox.y + aBox.h * 0.55);
     if (stomping) {
-      antHit(ant, now);
+      antHit(ant, now, stompDamage());
       player.vy = CONFIG.STOMP_BOUNCE;
       player.jumpOffset = -1;
       player.grounded = false;

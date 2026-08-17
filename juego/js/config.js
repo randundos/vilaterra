@@ -46,6 +46,7 @@ const CONFIG = {
 
   BOAR: {
     SPAWN_X: 1150,
+    MAX_HP: 10,
     HEIGHT: 54,
     SPEED: 1.6,
     PATROL_RANGE: 150,
@@ -123,6 +124,26 @@ const CONFIG = {
     UNARMED_FRAME_COUNT: 4 // frames reales del puñetazo (sin espada)
   },
 
+  // Cantidad de vida que quita cada tipo de golpe del jugador a un enemigo
+  // con vida numérica (ver combat.js: meleeDamage/stompDamage). La espada
+  // quita más que los puños; el pisotón (saltar encima) es fijo, no depende
+  // del arma equipada. De momento no hay enemigos más resistentes a un tipo
+  // de golpe que a otro (se podrá añadir más adelante).
+  DAMAGE: {
+    FIST_MIN: 4, FIST_MAX: 5,
+    STOMP_MIN: 6, STOMP_MAX: 7,
+    SWORD_MIN: 10, SWORD_MAX: 12
+  },
+
+  // Barra de vida de enemigo (roja sobre negro), dibujada flotando encima de
+  // su caja de colisión a partir del primer golpe que recibe (ver
+  // drawEnemyHealthBar en ui.js).
+  ENEMY_HEALTH_BAR: {
+    WIDTH: 40,
+    HEIGHT: 6,
+    OFFSET_Y: 8 // separación entre la cabeza del enemigo y el borde inferior de la barra
+  },
+
   // Hormigas con rifle: enemigos a distancia del tramo de hierba (nivel 2). Se
   // quedan quietas y disparan balas a intervalos regulares; el Hero tiene que
   // esquivarlas saltando hasta acercarse lo suficiente para rematarlas con la
@@ -130,6 +151,7 @@ const CONFIG = {
   // por cada hormiga del nivel (la 2a se sustituyó por el gusano, ver WORM; la
   // que iba al final se sustituyó por el jefe Talp, ver TALP).
   ANT: {
+    MAX_HP: 10,
     HEIGHT: 102,             // escalada junto con HERO_HEIGHT_SMALL, para mantener su proporción respecto a Hero
     SPAWNS: [1150], // más allá del tallo/espada, para que ya vaya armado al llegar
     ELITE_INDEX: -1, // ya no hay ninguna "veterana": el final del tramo lo lleva Talp
@@ -157,6 +179,7 @@ const CONFIG = {
   // guarda varias instancias con el mismo comportamiento (una por cada
   // SPAWNS), lo bastante cerca entre sí como para poder solaparse.
   WORM: {
+    MAX_HP: 6, // más débil que la media (10): "los gusanos y las verduras tendrán 6"
     HEIGHT: 40,            // un poco más pequeños que antes (era 46)
     SPAWNS: [2440, 2500, 2560], // 3 gusanos, patrullas solapadas
     SPEED: 1.4,
@@ -182,8 +205,8 @@ const CONFIG = {
   // sea agresivo sin abrumar. Quieto sin nada que hacer usa IDLE. Su cuerpo
   // es sólido a su alrededor (ver blockTalpBody en talp.js) pero NO por
   // encima: se le puede saltar. Aun así, la única forma de cruzar la cueva
-  // es derrotarlo (más de 5 golpes = 6, pisotón o espada): mientras siga
-  // vivo, la propia boca de la cueva tiene su propia barrera (ver
+  // es derrotarlo (vida numérica, MAX_HP = 55, pisotón o espada): mientras
+  // siga vivo, la propia boca de la cueva tiene su propia barrera (ver
   // blockCaveEntrance en cave.js) que esta sí no se puede saltar.
   // Los sets de WALK/TAUNT/IDLE/ATTACK2/DEATH son ciclos reales de varios
   // frames (ver ASSETS.talp); *_FRAME_MS es la duración de cada frame, la
@@ -193,7 +216,8 @@ const CONFIG = {
     CAVE_X: 3750,          // dentro de la boca de la cueva, punto de partida mientras está "dormant"
     GUARD_X: 3525,         // puesto de guardia, delante de la boca, tras salir de la cueva
     WAKE_DISTANCE: 260,    // a esta distancia (respecto a GUARD_X) empieza a salir
-    SPEED: 2.1,            // ritmo al caminar, tanto al salir de la cueva como al perseguir (antes 1.6: más agresivo al perseguir)
+    SPEED: 2.1,            // ritmo al perseguir/patrullar (antes 1.6: más agresivo al perseguir)
+    EMERGE_SPEED: 6,       // sale de la cueva mucho más rápido que al perseguir, para que no se note lento al asomar
     WALK_FRAME_MS: 90,     // ciclo de 5 frames -> ~450ms por zancada completa
     TAUNT_FRAME_MS: 70,    // ciclo de 13 frames -> ~910ms de rugido
     IDLE_FRAME_MS: 180,    // ciclo de 8 frames, de fondo mientras espera
@@ -205,7 +229,7 @@ const CONFIG = {
     ATTACK_COOLDOWN_MS: 1500, // "que tarde 1,5 segundo entre cada ataque"
     BODY_WIDTH: 100,       // ancho del cuerpo sólido que bloquea el paso de Hero (solo a su alrededor, no por encima)
     HURT_MS: 350,
-    HITS_TO_KILL: 6,       // "más de 5 veces"
+    MAX_HP: 55,            // jefe: bastante más resistente que un mook normal (10), ver CONFIG.DAMAGE en combat.js
     DEATH_FRAME_MS: 90,    // ciclo de 11 frames hundiéndose -> ~990ms
     DEATH_HOLD_MS: 300,    // se queda quieto en el último frame antes de empezar a desvanecerse
     DEATH_FADE_MS: 500,
@@ -217,7 +241,11 @@ const CONFIG = {
     HEALTH_BAR_Y: 14,
     HEALTH_BAR_W: 220,     // ancho en pantalla de la barra completa
     BRACELET_ICON_SIZE: 40,
-    MARGIN: 16              // margen respecto al borde del canvas
+    MARGIN: 16,             // margen respecto al borde del canvas
+    // Ranura de arma activa (espada/puños, tecla Q): esquina inferior
+    // izquierda, mismo MARGIN que el resto del HUD. Solo se dibuja una vez
+    // Player.hasSword es true (ver drawWeaponIndicator en ui.js).
+    WEAPON_BOX_SIZE: 48
   },
 
   // Aviso emergente estilo "objeto conseguido" (p.ej. al recoger la espada):
@@ -320,8 +348,9 @@ const CONFIG = {
   // con la misma "dificultad" (solo cambia el sprite): patrullan cerca de su
   // punto de partida (igual que el gusano), y al despertar (WAKE_DISTANCE)
   // reproducen una vez la animación de aparición antes de empezar a
-  // patrullar/atacar. Se matan de un solo golpe (pisotón o espada), igual
-  // que hormigas/gusano. Los 5 estados (idle/walk/spawn/attack/death) son
+  // patrullar/atacar. Tienen poca vida (MAX_HP = 6, ver CONFIG.DAMAGE) que
+  // baja con cada pisotón/golpe hasta morir. Los 5 estados (idle/walk/spawn/
+  // attack/death) son
   // ciclos reales de 8 frames, extraídos de vegetables1.gif/vegetables2.gif
   // y empaquetados en UNA sola imagen por especie (ver ASSETS.veggies y
   // Visuals/veggies/<especie>.png): una rejilla de 8 columnas x 5 filas
@@ -332,6 +361,7 @@ const CONFIG = {
   // ctx.drawImage(sheet, sx,sy,sw,sh, ...) sin cargar 240 archivos sueltos
   // (240 peticiones de red hacían el arranque muy lento).
   VEGGIE: {
+    MAX_HP: 6, // más débil que la media (10), igual que los gusanos
     HEIGHT: 76,
     SPECIES: ['scallion', 'pod', 'cherry', 'carrot', 'potato', 'onion'],
     SPAWNS: [250, 750, 1250, 1750], // solo 4 (antes 6), repartidas por el mismo tramo
@@ -416,18 +446,20 @@ const CONFIG = {
   },
 
   // Pájaro (puput): jefe final del nivel 2 parte 2. A diferencia de Talp, NO
-  // se le puede derrotar: el combate es real (Hero puede moverse/saltar y
-  // atacar con espada, y el pájaro reacciona con un breve parpadeo al
-  // golpe), pero el pájaro está pensado para acabar aterrizando sus propios
-  // ataques sí o sí. Cada ataque que conecta hace daño normal a Hero (igual
-  // que cualquier otro enemigo, con riesgo real de "Has Fallat" si la vida
-  // llega a 0 antes); al conectar el 5º golpe (HITS_TO_CAPTURE), en vez de
-  // seguir atacando agarra a Hero y se lo lleva volando (ver CAPTURE más
-  // abajo y Bird.updateCapture en bird.js), terminando en la pantalla
+  // se le puede matar de verdad: el combate es real (Hero puede moverse/
+  // saltar y atacar con espada/puños, y el pájaro reacciona con un breve
+  // parpadeo al golpe), pero el pájaro está pensado para acabar aterrizando
+  // sus propios ataques sí o sí. Cada ataque que conecta hace daño normal a
+  // Hero (igual que cualquier otro enemigo, con riesgo real de "Has Fallat"
+  // si la vida llega a 0 antes); tiene una vida numérica (MAX_HP, ver
+  // combat.js) que baja con los golpes de Hero, y en cuanto llega a 0, en
+  // vez de morir agarra a Hero y se lo lleva volando (ver CAPTURE más abajo
+  // y Bird.updateCapture en bird.js), terminando en la pantalla
   // "pròximament" (nivell 3). Solo tenemos dos poses reales (de pie/en vuelo
   // y picoteando/atacando), sin ciclo de vuelo propio, así que "active" usa
   // un ligero balanceo (HOVER_*) para dar sensación de que planea.
   BIRD: {
+    MAX_HP: 40,             // jefe: más resistente que un mook normal (10), aunque menos que Talp (55)
     HEIGHT: 175,           // más grande (antes 130), para que se note que es el jefe final
     SPAWN_X: 2200,         // al final del gauntlet de verduras (ver VEGGIE.SPAWNS)
     WAKE_DISTANCE: 260,
@@ -439,7 +471,6 @@ const CONFIG = {
     ATTACK_COOLDOWN_MS: 1300,
     ATTACK_DURATION_MS: 420,
     ATTACK_HIT_FRACTION: 0.6,
-    HITS_TO_CAPTURE: 5,   // antes 7
     CHASE_LEASH: 900,     // prácticamente todo el tramo: no se rinde
     FLINCH_MS: 150,       // parpadeo al recibir un golpe de Hero (no le hace nada más, es invulnerable)
     FLAP_FRAME_MS: 90,    // velocidad del ciclo de aleteo real (ASSETS.bird.flap, 4 frames en bucle)
@@ -523,7 +554,12 @@ const CONFIG = {
     // mostrador rojo y las mesas de trabajo, y los personajes "flotarían"
     // encima de esos muebles al no haber ordenación por profundidad.
     HERO_X: 260,
-    HERO_HEIGHT: 155, // = HERO_HEIGHT_CUTSCENE, la altura "normal" de Hero fuera de jugabilidad
+    // = HERO_HEIGHT_GAMEPLAY (112), NO HERO_HEIGHT_CUTSCENE (155): Hero se
+    // queda al mismo tamaño "de jugabilidad" durante TODA la escena (llegada,
+    // diálogos y freeRoam), para que no se note un salto de tamaño justo al
+    // empezar a luchar contra el sapo (antes entraba a 155 y encogía a 112
+    // de golpe al recuperar el control).
+    HERO_HEIGHT: 112,
     MAC_X: 360,
     MAC_HEIGHT: 165,
 
@@ -572,7 +608,7 @@ const CONFIG = {
     // durante su "Croac!" (primera línea de TOAD_INTRO_LINES); en cuanto Big
     // Bross empieza a hablar (segunda línea, su reacción) vuelve a su pose
     // normal, y así se va de la escena.
-    BIGBROSS_EXIT_SPEED: 2.2,
+    BIGBROSS_EXIT_SPEED: 7, // se va mucho más rápido que antes (era 2.2)
     BIGBROSS_EXIT_OFF_X: -150, // fuera de pantalla del todo por la izquierda
     POST_BIGBROSS_EXIT_PAUSE_MS: 300,
 
@@ -594,6 +630,7 @@ const CONFIG = {
   // vez a partir de la altura real del frame de idle, así el sapo tumbado al
   // morir no se estira para ocupar la misma altura que de pie.
   TOAD: {
+    MAX_HP: 10,
     HEIGHT: 105,
     CELL_W: 211,
     CELL_H: 147,
